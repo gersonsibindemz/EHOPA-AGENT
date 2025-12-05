@@ -236,6 +236,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // 1. Validation
     if (!selectedProvider || !selectedOrigin || !selectedSpecies || !selectedCondition || !quantity || !unitPrice || !location || !selectedDate) {
       setSubmitStatus('error');
       return;
@@ -275,13 +276,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
       return;
     }
 
+    setSubmitStatus('submitting');
+
+    // 2. Data Formatting
     // Format date to DD/MM/YYYY for spreadsheet
     const [year, month, day] = selectedDate.split('-');
     const formattedDate = `${day}/${month}/${year}`;
 
-    setSubmitStatus('submitting');
-
-    // Generate ID based on GERAL sheet data
+    // 3. ID Generation
     const SHEET_ID = '1Rl9gd3kD6QnBFg1Iu9vgqsRjBSukGfqrjgQldADIRYQ';
     let generatedId = '';
 
@@ -289,6 +291,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
       const geralUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('GERAL')}`;
       const response = await fetch(geralUrl);
       
+      const originSlug = selectedOrigin.trim().toLowerCase().replace(/\s+/g, '_');
+
       if (response.ok) {
         const csvText = await response.text();
         const lines = csvText.split('\n');
@@ -296,7 +300,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
 
         if (lines.length > 1) {
           const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
-          // Find "Origem" or "Praia" column (case insensitive)
+          // Find "Origem (Praia)" column
           const originIdx = headers.findIndex(h => {
              const lower = h.toLowerCase();
              return lower.includes('origem') || lower.includes('praia');
@@ -319,11 +323,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
         }
         
         const sequence = count + 1;
-        const originSlug = selectedOrigin.trim().toLowerCase().replace(/\s+/g, '_');
         generatedId = `${originSlug}_${sequence.toString().padStart(3, '0')}`;
       } else {
-        // Fallback
-        const originSlug = selectedOrigin.trim().toLowerCase().replace(/\s+/g, '_');
+        // Fallback if sheet cannot be read
         generatedId = `${originSlug}_001`;
       }
     } catch (error) {
@@ -332,27 +334,51 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
       generatedId = `${originSlug}_ERROR`;
     }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // 4. Construct Final Data Object
+    // Link da Imagem is ignored as per requirements
+    const registrationData = {
+      "ID": generatedId,
+      "Data de Pescado": formattedDate,
+      "Link da Imagem": "", // Explicitly empty/ignored
+      "Espécie": selectedSpecies,
+      "Qtd. (Kg)": quantity.replace('.', ','), // Ensure proper decimal format for PT Sheets
+      "Preço Unit. (Kg)": unitPrice.replace('.', ','),
+      "Estado": selectedCondition,
+      "Provedor": selectedProvider,
+      "Origem (Praia)": selectedOrigin,
+      "Geo-Localização": `${location.lat}, ${location.lng}`
+    };
 
-    console.log(`Submitting Data to Sheet 'GERAL':
-      - ID: ${generatedId}
-      - Data de Captura: ${formattedDate}
-      - Provedor: ${selectedProvider}
-      - Origem (Praia): ${selectedOrigin}
-      - Espécie: ${selectedSpecies}
-      - Estado: ${selectedCondition}
-      - Qtd. (Kg): ${qtyValue.toFixed(2).replace('.', ',')}
-      - Preço Unit. (Kg): ${priceValue.toFixed(2).replace('.', ',')}
-      - Geo-Localização: ${location.lat}, ${location.lng}
-      - Imagens Anexadas (Visualização apenas): ${images.length}
-    `);
-    
-    setSubmitStatus('success');
-    
-    setTimeout(() => {
-      onClose();
-    }, 2000);
+    // 5. Submission (Via SheetDB API)
+    try {
+      const SHEETDB_API = 'https://sheetdb.io/api/v1/bfoqynbg612ad';
+      
+      const response = await fetch(`${SHEETDB_API}?sheet=GERAL`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          data: registrationData
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao comunicar com o servidor.');
+      }
+
+      setSubmitStatus('success');
+      
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+      
+    } catch (err) {
+      console.error("Erro na submissão:", err);
+      alert("Houve um problema ao salvar o registo. Verifique sua conexão e tente novamente.");
+      setSubmitStatus('error');
+    }
   };
 
   return (
