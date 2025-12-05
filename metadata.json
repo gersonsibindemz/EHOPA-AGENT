@@ -1,0 +1,7 @@
+{
+  "name": "Pescado do Dia - EHOPA AGENT",
+  "description": "A simplified mobile web application for EHOPA Agents to register daily fish catch data.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
