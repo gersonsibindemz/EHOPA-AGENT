@@ -4,9 +4,10 @@ import { Button } from './Button';
 
 interface HomeViewProps {
   onOpenForm: () => void;
+  onOpenHistory: () => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ onOpenForm }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onOpenForm, onOpenHistory }) => {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <Header title="EHOPA AGENT" />
@@ -31,8 +32,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenForm }) => {
         </div>
       </main>
       
-      <footer className="p-6 text-center text-xs text-slate-400">
-        EHOPA AGENT - Alpha
+      <footer className="p-6 text-center space-y-3">
+        <button 
+          onClick={onOpenHistory} 
+          className="text-sm font-medium text-slate-500 hover:text-slate-900 underline underline-offset-4"
+        >
+          Histórico
+        </button>
+        <div className="text-xs text-slate-400">
+          EHOPA AGENT - Alpha
+        </div>
       </footer>
     </div>
   );

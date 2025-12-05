@@ -72,14 +72,7 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack, onBack }) => {
               </div>
             </div>
             
-            <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-              <button 
-                onClick={() => setShowInfo(false)}
-                className="text-sm font-semibold text-slate-900 hover:text-slate-700 px-6 py-2 w-full sm:w-auto"
-              >
-                Entendido
-              </button>
-            </div>
+            {/* Footer removed as requested */}
           </div>
         </div>
       )}

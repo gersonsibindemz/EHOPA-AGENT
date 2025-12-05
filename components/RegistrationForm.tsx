@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Header } from './Header';
 import { Button } from './Button';
 import { AlertCircle, CheckCircle2, Loader2, Locate, Map as MapIcon, Calendar, Camera, X } from 'lucide-react';
+import { HistoryRecord } from '../types';
 
 interface RegistrationFormProps {
   onClose: () => void;
+  onOpenHistory: () => void;
 }
 
 interface Provider {
@@ -17,7 +19,7 @@ interface LocationData {
   lng: number;
 }
 
-export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) => {
+export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onOpenHistory }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [origins, setOrigins] = useState<string[]>([]);
   const [species, setSpecies] = useState<string[]>([]);
@@ -397,6 +399,24 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
 
       if (!response.ok) {
         throw new Error('Falha ao comunicar com o servidor.');
+      }
+
+      // 6. Save to Local History
+      try {
+        const historyItem: HistoryRecord = {
+          id: generatedId,
+          date: formattedDate,
+          species: selectedSpecies,
+          quantity: quantity,
+          price: unitPrice,
+          condition: selectedCondition,
+          origin: selectedOrigin,
+          timestamp: new Date().toISOString()
+        };
+        const currentHistory = JSON.parse(localStorage.getItem('ehopa_history') || '[]');
+        localStorage.setItem('ehopa_history', JSON.stringify([historyItem, ...currentHistory]));
+      } catch (histErr) {
+        console.error("Erro ao salvar histórico local", histErr);
       }
 
       // Send WhatsApp message after successful submission
@@ -789,7 +809,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
 
             </div>
 
-            <div className="p-6 bg-white md:bg-slate-50 border-t border-slate-100 sticky bottom-0 z-10 md:static shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none">
+            <div className="p-6 bg-white md:bg-slate-50 border-t border-slate-100 sticky bottom-0 z-10 md:static shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none space-y-4">
               <Button 
                 type="submit" 
                 fullWidth 
@@ -810,6 +830,16 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
                   'Submeter Registo'
                 )}
               </Button>
+
+              <div className="text-center">
+                 <button 
+                  type="button"
+                  onClick={onOpenHistory} 
+                  className="text-xs font-medium text-slate-500 hover:text-slate-900 underline underline-offset-4"
+                >
+                  Histórico
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -876,7 +906,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
                  </div>
                  <div className="space-y-1">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</p>
-                    <p className="text-green-600 font-bold">{calculateTotal()} MT</p>
+                    <p className="text-blue-600 font-bold">{calculateTotal()} MT</p>
                  </div>
                </div>
 
@@ -900,12 +930,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
                  </div>
                )}
 
-               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                 <h4 className="text-sm font-bold text-amber-900 flex items-center gap-2 mb-1">
-                   ⚠️ Atenção
+               <div className="bg-slate-100 border border-slate-200 rounded-xl p-4">
+                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
+                   Atenção
                  </h4>
-                 <p className="text-xs text-amber-800 leading-relaxed">
-                   Após clicar em Confirmar, você será redirecionado para o WhatsApp. É necessário enviar a mensagem para nossa equipe para que o registo seja validado e visto pelos clientes.
+                 <p className="text-xs text-slate-900 leading-relaxed">
+                   Caro Agente, após clicar em Confirmar, você será redirecionado para a nossa Assistência no WhatsApp. É necessário que confirme o envio da mensagem para nossa equipe para que o registo seja validado e visto pelos clientes.
                  </p>
                </div>
             </div>
@@ -921,7 +951,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
                </Button>
                <Button 
                  onClick={executeSubmission} 
-                 className="flex-1 !bg-green-600 hover:!bg-green-700"
+                 className="flex-1"
                  type="button"
                >
                  Confirmar
