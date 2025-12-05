@@ -899,6 +899,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
                     </div>
                  </div>
                )}
+
+               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                 <h4 className="text-sm font-bold text-amber-900 flex items-center gap-2 mb-1">
+                   ⚠️ Atenção
+                 </h4>
+                 <p className="text-xs text-amber-800 leading-relaxed">
+                   Após clicar em Confirmar, você será redirecionado para o WhatsApp. É necessário enviar a mensagem para nossa equipe para que o registo seja validado e visto pelos clientes.
+                 </p>
+               </div>
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl shrink-0 gap-3 flex">
