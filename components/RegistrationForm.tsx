@@ -40,6 +40,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
   const [previews, setPreviews] = useState<string[]>([]);
   
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,7 +234,32 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
     return (q * p).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const sendWhatsAppNotification = () => {
+    const q = parseFloat(quantity.replace(',', '.')) || 0;
+    const p = parseFloat(unitPrice.replace(',', '.')) || 0;
+    const total = (q * p).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const [year, month, day] = selectedDate.split('-');
+    const formattedDate = `${day}/${month}/${year}`;
+
+    const message = `📌 *Novo registro EHOPA*
+
+📅 Data: ${formattedDate}
+🐟 Espécie: ${selectedSpecies}
+⚖️ Quantidade: ${quantity} kg
+💵 Preço por kg: ${unitPrice} MZN
+📦 Total: ${total} MZN
+❄️ Condição: ${selectedCondition}
+🌊 Origem: ${selectedOrigin}`;
+
+    const phoneNumber = "258856022244";
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Open WhatsApp in a new tab
+    window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
+  };
+
+  const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     // 1. Validation
@@ -276,6 +302,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
       return;
     }
 
+    setShowConfirmation(true);
+  };
+
+  const executeSubmission = async () => {
+    setShowConfirmation(false);
     setSubmitStatus('submitting');
 
     // 2. Data Formatting
@@ -338,7 +369,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
     // Link da Imagem is ignored as per requirements
     const registrationData = {
       "ID": generatedId,
-      "Data de Pescado": formattedDate,
+      "Data de Captura": formattedDate,
       "Link da Imagem": "", // Explicitly empty/ignored
       "Espécie": selectedSpecies,
       "Qtd. (Kg)": quantity.replace('.', ','), // Ensure proper decimal format for PT Sheets
@@ -346,7 +377,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
       "Estado": selectedCondition,
       "Provedor": selectedProvider,
       "Origem (Praia)": selectedOrigin,
-      "Geo-Localização": `${location.lat}, ${location.lng}`
+      "Geo-Localização": `${location?.lat}, ${location?.lng}`
     };
 
     // 5. Submission (Via SheetDB API)
@@ -368,6 +399,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
         throw new Error('Falha ao comunicar com o servidor.');
       }
 
+      // Send WhatsApp message after successful submission
+      sendWhatsAppNotification();
+
       setSubmitStatus('success');
       
       setTimeout(() => {
@@ -387,7 +421,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
       
       <main className="flex-1 flex flex-col md:p-6">
         <div className="w-full md:max-w-md md:mx-auto flex flex-col flex-1">
-          <form onSubmit={handleSubmit} className="flex flex-col flex-1 bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-100 md:overflow-hidden">
+          <form onSubmit={handlePreSubmit} className="flex flex-col flex-1 bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-100 md:overflow-hidden">
             <div className="p-6 space-y-6 flex-1">
               
               {/* 1. Field: Data da Captura (Icons kept) */}
@@ -773,13 +807,120 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose }) =
                     Registado!
                   </>
                 ) : (
-                  'Confirmar Registo'
+                  'Submeter Registo'
                 )}
               </Button>
             </div>
           </form>
         </div>
       </main>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" 
+            onClick={() => setShowConfirmation(false)} 
+            aria-hidden="true"
+          />
+          <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-200">
+            
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h3 className="text-xl font-bold text-slate-900">Confirmar Dados</h3>
+              <button 
+                onClick={() => setShowConfirmation(false)} 
+                className="p-2 -mr-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                type="button"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5">
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Data</p>
+                    <p className="text-slate-900 font-medium">{selectedDate.split('-').reverse().join('/')}</p>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Espécie</p>
+                    <p className="text-slate-900 font-medium">{selectedSpecies}</p>
+                 </div>
+               </div>
+
+               <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Provedor</p>
+                  <p className="text-slate-900 font-medium">{selectedProvider}</p>
+               </div>
+
+               <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Origem</p>
+                  <p className="text-slate-900 font-medium">{selectedOrigin}</p>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Quantidade</p>
+                    <p className="text-slate-900 font-medium">{quantity} kg</p>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Condição</p>
+                    <p className="text-slate-900 font-medium">{selectedCondition}</p>
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Preço Unit.</p>
+                    <p className="text-slate-900 font-medium">{unitPrice} MT</p>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</p>
+                    <p className="text-green-600 font-bold">{calculateTotal()} MT</p>
+                 </div>
+               </div>
+
+               <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Localização</p>
+                  <p className="text-slate-900 font-mono text-sm">
+                    {location?.lat.toFixed(6)}, {location?.lng.toFixed(6)}
+                  </p>
+               </div>
+
+               {images.length > 0 && (
+                 <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Imagens ({images.length})</p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {previews.map((url, idx) => (
+                        <div key={idx} className="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-slate-200">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                 </div>
+               )}
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl shrink-0 gap-3 flex">
+               <Button 
+                 variant="secondary" 
+                 onClick={() => setShowConfirmation(false)} 
+                 className="flex-1"
+                 type="button"
+               >
+                 Voltar
+               </Button>
+               <Button 
+                 onClick={executeSubmission} 
+                 className="flex-1 !bg-green-600 hover:!bg-green-700"
+                 type="button"
+               >
+                 Confirmar
+               </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

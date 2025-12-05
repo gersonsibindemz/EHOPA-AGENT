@@ -1,5 +1,4 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
 import { Header } from './Header';
 import { Button } from './Button';
 
@@ -18,9 +17,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenForm }) => {
         
         <div className="flex flex-col items-center max-w-sm w-full z-10 space-y-8">
           <div className="text-center space-y-2">
-            <div className="mx-auto bg-white p-4 rounded-2xl shadow-sm border border-slate-100 w-16 h-16 flex items-center justify-center mb-4">
-              <Plus className="w-8 h-8 text-slate-900" />
-            </div>
             <h2 className="text-2xl font-bold text-slate-900">Novo Registo</h2>
             <p className="text-slate-500">Adicione um novo registo de pescado ao sistema.</p>
           </div>
