@@ -32,7 +32,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenForm }) => {
       </main>
       
       <footer className="p-6 text-center text-xs text-slate-400">
-        EHOPA AGENT v1.0
+        EHOPA AGENT - Alpha
       </footer>
     </div>
   );
