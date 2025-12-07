@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Header } from './Header';
 import { Button } from './Button';
 import { ViewState } from '../types';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 interface AuthViewProps {
   onNavigate: (view: ViewState) => void;
@@ -17,6 +17,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -27,15 +29,24 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
     confirmPassword: ''
   });
 
+  const showMessage = (type: 'success' | 'error' | 'warning', message: string) => {
+    setNotification({ type, message });
+    // Auto hide after 5 seconds
+    setTimeout(() => setNotification(null), 5000);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear notification when user starts typing to try again
+    if (notification) setNotification(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setNotification(null);
     
     if (!isLogin && formData.password !== formData.confirmPassword) {
-      alert("As senhas não coincidem.");
+      showMessage('warning', "As senhas não coincidem. Por favor, tente novamente.");
       return;
     }
 
@@ -95,7 +106,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
               }
               
               if (storedPhone !== inputBaseNumber) {
-                 alert("Número de telemóvel não corresponde (Validação de segurança).");
+                 showMessage('error', "O número de telemóvel inserido não corresponde ao registo desta conta.");
                  setLoading(false);
                  return;
               }
@@ -104,6 +115,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
            // Check password
            if (user.Senha === formData.password) {
               // Login Success - Create local session with full profile data
+              
+              // Preserve existing photo if email matches (Photo Persistence)
+              let existingPhotoUrl = '';
+              try {
+                  const stored = localStorage.getItem('ehopa_user_profile');
+                  if (stored) {
+                      const p = JSON.parse(stored);
+                      if (p.email === user.Email && p.photoUrl) {
+                          existingPhotoUrl = p.photoUrl;
+                      }
+                  }
+              } catch(e) {}
+
               const profile = {
                 name: user.Nome || '',
                 surname: user.Apelido || '',
@@ -116,15 +140,16 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
                 province: user['Província'] || '',
                 district: user['Distrito'] || '',
                 praia: user['Praia'] || '',
-                affiliationDate: new Date().toISOString()
+                affiliationDate: new Date().toISOString(),
+                photoUrl: existingPhotoUrl
               };
               localStorage.setItem('ehopa_user_profile', JSON.stringify(profile));
               onNavigate('FORM');
            } else {
-             alert("Senha incorreta.");
+             showMessage('error', "A senha inserida está incorreta.");
            }
         } else {
-           alert("Utilizador não encontrado. Verifique seus dados.");
+           showMessage('error', "Utilizador não encontrado. Verifique se os dados estão corretos.");
         }
 
       } else {
@@ -159,18 +184,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
            surname: formData.lastName,
            email: formData.email,
            mobileMain: `258${cleanMobile}`,
-           affiliationDate: new Date().toISOString()
+           affiliationDate: new Date().toISOString(),
+           photoUrl: ''
         };
         localStorage.setItem('ehopa_user_profile', JSON.stringify(profile));
         
-        alert("Conta criada com sucesso!");
-        onNavigate('FORM');
+        showMessage('success', "Conta criada com sucesso! A redirecionar...");
+        setTimeout(() => onNavigate('FORM'), 1500);
       }
     } catch (error) {
       console.error(error);
-      alert("Ocorreu um erro de conexão ou o utilizador não existe.");
+      showMessage('error', "Ocorreu um erro de conexão. Verifique sua internet.");
     } finally {
-      setLoading(false);
+      if (!notification || notification.type !== 'success') {
+          setLoading(false);
+      }
     }
   };
 
@@ -194,6 +222,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
             {isLogin ? 'Faça login para continuar.' : 'Preencha os dados para começar.'}
           </p>
         </div>
+
+        {notification && (
+          <div className={`mb-6 p-4 rounded-xl flex items-start gap-3 text-sm font-medium animate-in slide-in-from-top-2 fade-in duration-300 shadow-sm border ${
+            notification.type === 'error' ? 'bg-red-50 text-red-900 border-red-100' :
+            notification.type === 'success' ? 'bg-green-50 text-green-900 border-green-100' :
+            'bg-amber-50 text-amber-900 border-amber-100'
+          }`}>
+            {notification.type === 'error' && <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />}
+            {notification.type === 'success' && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />}
+            {notification.type === 'warning' && <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />}
+            <p className="leading-relaxed">{notification.message}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           
@@ -345,6 +386,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
           <button 
             onClick={() => {
               setIsLogin(!isLogin);
+              setNotification(null);
               // Clear form data when switching modes to avoid confusion
               setFormData({
                 firstName: '', lastName: '', mobile: '', email: '',

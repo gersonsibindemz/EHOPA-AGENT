@@ -142,7 +142,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
             Início
           </button>
           <span className="text-slate-300">/</span>
-          <span className="text-slate-900">Perfil</span>
+          <span className="text-slate-900">Cartão de Agente</span>
         </div>
 
         <form onSubmit={handleSave} className="space-y-6 max-w-lg mx-auto">
