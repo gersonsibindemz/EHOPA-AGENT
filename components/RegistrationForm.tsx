@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from './Header';
 import { Button } from './Button';
-import { AlertCircle, CheckCircle2, Loader2, Locate, Map as MapIcon, Calendar, Camera, X } from 'lucide-react';
-import { HistoryRecord } from '../types';
+import { AlertCircle, Loader2, Locate, Map as MapIcon, Calendar, Camera, X, AlertTriangle } from 'lucide-react';
+import { HistoryRecord, ViewState } from '../types';
 
 interface RegistrationFormProps {
-  onClose: () => void;
-  onOpenHistory: () => void;
+  onNavigate: (view: ViewState) => void;
 }
 
 interface Provider {
@@ -19,12 +18,13 @@ interface LocationData {
   lng: number;
 }
 
-export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onOpenHistory }) => {
+export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [origins, setOrigins] = useState<string[]>([]);
   const [species, setSpecies] = useState<string[]>([]);
   
   const [loading, setLoading] = useState(true);
+  // error state used for data loading errors
   const [error, setError] = useState<string | null>(null);
   
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -33,23 +33,39 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
   const [selectedCondition, setSelectedCondition] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
   const [unitPrice, setUnitPrice] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
+  
+  // Validation States
+  const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
+  const [missingFieldNames, setMissingFieldNames] = useState<string[]>([]);
+  
+  // Set default date to Maputo Time (GMT+2)
+  const getMaputoDate = () => {
+    try {
+      const maputoDateStr = new Date().toLocaleString('en-CA', { timeZone: 'Africa/Maputo' });
+      return maputoDateStr.split(',')[0].trim(); 
+    } catch (e) {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getMaputoDate());
   const [location, setLocation] = useState<LocationData | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocationDisabled, setIsLocationDisabled] = useState(false);
   
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const SHEET_ID = '1Rl9gd3kD6QnBFg1Iu9vgqsRjBSukGfqrjgQldADIRYQ';
         
-        // URLs for sheets
         const providersUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Lista de Provedores')}`;
         const originsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Pontos de Pescado')}`;
         const speciesUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Espécies')}`;
@@ -73,7 +89,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
         setLoading(false);
       } catch (err) {
         console.error(err);
-        setError('Não foi possível carregar as listas de dados. Verifique sua conexão.');
+        setError('Erro de conexão. Verifique sua internet.');
         setLoading(false);
       }
     };
@@ -81,7 +97,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
     fetchData();
   }, []);
 
-  // Cleanup previews to avoid memory leaks
   useEffect(() => {
     return () => {
       previews.forEach(url => URL.revokeObjectURL(url));
@@ -144,7 +159,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
     if (lines.length < 2) return [];
 
     const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
-    // Flexible matching for "Espécies" or "Especies"
     const speciesIdx = headers.findIndex(h => {
       const normalized = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return normalized === 'especies';
@@ -167,9 +181,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
   const handleGetLocation = () => {
     setLocationLoading(true);
     setLocationError(null);
+    setIsLocationDisabled(false);
+    clearError('location');
     
     if (!navigator.geolocation) {
-      setLocationError('Geolocalização não é suportada pelo seu dispositivo.');
+      setLocationError('Geolocalização não suportada.');
       setLocationLoading(false);
       return;
     }
@@ -181,16 +197,21 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
           lng: position.coords.longitude
         });
         setLocationLoading(false);
+        setIsLocationDisabled(false);
         if (submitStatus === 'error') setSubmitStatus('idle');
       },
       (err) => {
         console.error(err);
-        let msg = 'Erro ao obter localização.';
-        if (err.code === 1) msg = 'Permissão de localização negada.';
-        else if (err.code === 2) msg = 'Sinal de GPS indisponível.';
-        else if (err.code === 3) msg = 'O tempo para obter a localização esgotou.';
-        setLocationError(msg);
         setLocationLoading(false);
+        
+        if (err.code === 2) {
+          setIsLocationDisabled(true);
+          setLocationError(null);
+        } else if (err.code === 1) {
+          setLocationError('Permissão de localização negada.');
+        } else {
+          setLocationError('Erro ao obter sinal GPS. Tente novamente.');
+        }
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
@@ -202,8 +223,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
       const totalFiles = images.length + newFiles.length;
 
       if (totalFiles > 5) {
-        alert("Máximo de 5 imagens permitido.");
-        // Clear input so selecting the same file again works if needed
+        alert("Máximo de 5 imagens.");
         e.target.value = ''; 
         return;
       }
@@ -211,8 +231,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
       const newPreviews = newFiles.map(file => URL.createObjectURL(file));
       setImages(prev => [...prev, ...newFiles]);
       setPreviews(prev => [...prev, ...newPreviews]);
-      
-      // Reset input value to allow selecting the same file again if desired in a new batch
       e.target.value = '';
     }
   };
@@ -220,12 +238,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
   const removeImage = (index: number) => {
     const newImages = [...images];
     const newPreviews = [...previews];
-    
-    URL.revokeObjectURL(newPreviews[index]); // Cleanup specific URL
-    
+    URL.revokeObjectURL(newPreviews[index]);
     newImages.splice(index, 1);
     newPreviews.splice(index, 1);
-    
     setImages(newImages);
     setPreviews(newPreviews);
   };
@@ -240,112 +255,96 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
     const q = parseFloat(quantity.replace(',', '.')) || 0;
     const p = parseFloat(unitPrice.replace(',', '.')) || 0;
     const total = (q * p).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
     const [year, month, day] = selectedDate.split('-');
     const formattedDate = `${day}/${month}/${year}`;
 
     const message = `📌 *Novo registro EHOPA*
-
 📅 Data: ${formattedDate}
 🐟 Espécie: ${selectedSpecies}
 ⚖️ Quantidade: ${quantity} kg
-💵 Preço por kg: ${unitPrice} MZN
+💵 Preço: ${unitPrice} MZN/kg
 📦 Total: ${total} MZN
-❄️ Condição: ${selectedCondition}
+❄️ Estado: ${selectedCondition}
 🌊 Origem: ${selectedOrigin}`;
 
     const phoneNumber = "258856022244";
-    const encodedMessage = encodeURIComponent(message);
-    
-    // Open WhatsApp in a new tab
-    window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
+    window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+  
+  const clearError = (field: string) => {
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({ ...prev, [field]: false }));
+    }
   };
 
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 1. Validation
-    if (!selectedProvider || !selectedOrigin || !selectedSpecies || !selectedCondition || !quantity || !unitPrice || !location || !selectedDate) {
+    const errors: Record<string, boolean> = {};
+    const missing: string[] = [];
+
+    if (!selectedDate) { errors.date = true; missing.push("Data da Captura"); }
+    if (!selectedProvider) { errors.provider = true; missing.push("Provedor"); }
+    if (!selectedOrigin) { errors.origin = true; missing.push("Origem (Praia)"); }
+    if (!location) { errors.location = true; missing.push("Geolocalização"); }
+    if (!selectedSpecies) { errors.species = true; missing.push("Espécie"); }
+    if (!selectedCondition) { errors.condition = true; missing.push("Estado"); }
+    if (!quantity) { errors.quantity = true; missing.push("Quantidade"); }
+    if (!unitPrice) { errors.unitPrice = true; missing.push("Preço"); }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setMissingFieldNames(missing);
       setSubmitStatus('error');
+      setShowValidationModal(true);
       return;
     }
     
-    // Validate quantity
     const qtyValue = parseFloat(quantity.replace(',', '.'));
     if (isNaN(qtyValue) || qtyValue <= 0) {
-      alert("Por favor, insira uma quantidade válida maior que 0.");
-      setSubmitStatus('error');
+      alert("Quantidade inválida.");
       return;
     }
-
-    // Validate unit price
     const priceValue = parseFloat(unitPrice.replace(',', '.'));
     if (isNaN(priceValue) || priceValue < 0) {
-      alert("Por favor, insira um preço unitário válido.");
-      setSubmitStatus('error');
+      alert("Preço inválido.");
       return;
     }
-
-    const providerExists = providers.some(p => p.fullName === selectedProvider);
-    if (!providerExists) {
-      alert("Provedor não encontrado. Contacte o administrador para cadastro.");
+    if (!providers.some(p => p.fullName === selectedProvider)) {
+      alert("Provedor inválido.");
       return;
     }
-
-    const originExists = origins.includes(selectedOrigin);
-    if (!originExists) {
-      alert("Origem não encontrada na lista permitida.");
-      return;
-    }
-
-    const speciesExists = species.includes(selectedSpecies);
-    if (!speciesExists) {
-      alert("Espécie não encontrada na lista permitida.");
-      return;
-    }
-
     setShowConfirmation(true);
   };
 
   const executeSubmission = async () => {
     setShowConfirmation(false);
     setSubmitStatus('submitting');
-
-    // 2. Data Formatting
-    // Format date to DD/MM/YYYY for spreadsheet
     const [year, month, day] = selectedDate.split('-');
     const formattedDate = `${day}/${month}/${year}`;
-
-    // 3. ID Generation
     const SHEET_ID = '1Rl9gd3kD6QnBFg1Iu9vgqsRjBSukGfqrjgQldADIRYQ';
     let generatedId = '';
 
     try {
       const geralUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('GERAL')}`;
       const response = await fetch(geralUrl);
-      
       const originSlug = selectedOrigin.trim().toLowerCase().replace(/\s+/g, '_');
 
       if (response.ok) {
         const csvText = await response.text();
         const lines = csvText.split('\n');
         let count = 0;
-
         if (lines.length > 1) {
           const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
-          // Find "Origem (Praia)" column
           const originIdx = headers.findIndex(h => {
              const lower = h.toLowerCase();
              return lower.includes('origem') || lower.includes('praia');
           });
-
           if (originIdx !== -1) {
              count = lines.slice(1).reduce((acc, line) => {
-               // Matches standard CSV cells
                const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
                if (matches) {
                  const rowValues = matches.map(val => val.replace(/^"|"$/g, '').trim());
-                 // Check if the origin matches (case-insensitive for robustness)
                  if (rowValues[originIdx] && rowValues[originIdx].toLowerCase() === selectedOrigin.toLowerCase()) {
                    return acc + 1;
                  }
@@ -354,54 +353,38 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
              }, 0);
           }
         }
-        
         const sequence = count + 1;
         generatedId = `${originSlug}_${sequence.toString().padStart(3, '0')}`;
       } else {
-        // Fallback if sheet cannot be read
         generatedId = `${originSlug}_001`;
       }
     } catch (error) {
-      console.error("Error fetching GERAL sheet for ID generation:", error);
       const originSlug = selectedOrigin.trim().toLowerCase().replace(/\s+/g, '_');
       generatedId = `${originSlug}_ERROR`;
     }
 
-    // 4. Construct Final Data Object
-    // Link da Imagem is ignored as per requirements
     const registrationData = {
       "ID": generatedId,
       "Data de Captura": formattedDate,
-      "Link da Imagem": "", // Explicitly empty/ignored
+      "Link da Imagem": "",
       "Espécie": selectedSpecies,
-      "Qtd. (Kg)": quantity.replace('.', ','), // Ensure proper decimal format for PT Sheets
+      "Qtd. (Kg)": quantity.replace('.', ','),
       "Preço Unit. (Kg)": unitPrice.replace('.', ','),
       "Estado": selectedCondition,
       "Provedor": selectedProvider,
       "Origem (Praia)": selectedOrigin,
-      "Geo-Localização": `${location?.lat}, ${location?.lng}`
+      "Geo-Localização": `${location?.lat}, ${location?.lng}`,
+      "Timestamp": new Date().toLocaleString('pt-PT', { timeZone: 'Africa/Maputo' })
     };
 
-    // 5. Submission (Via SheetDB API)
     try {
       const SHEETDB_API = 'https://sheetdb.io/api/v1/bfoqynbg612ad';
-      
-      const response = await fetch(`${SHEETDB_API}?sheet=GERAL`, {
+      await fetch(`${SHEETDB_API}?sheet=GERAL`, {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          data: registrationData
-        })
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: registrationData })
       });
 
-      if (!response.ok) {
-        throw new Error('Falha ao comunicar com o servidor.');
-      }
-
-      // 6. Save to Local History
       try {
         const historyItem: HistoryRecord = {
           id: generatedId,
@@ -415,547 +398,311 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onClose, onO
         };
         const currentHistory = JSON.parse(localStorage.getItem('ehopa_history') || '[]');
         localStorage.setItem('ehopa_history', JSON.stringify([historyItem, ...currentHistory]));
-      } catch (histErr) {
-        console.error("Erro ao salvar histórico local", histErr);
-      }
+      } catch (e) {}
 
-      // Send WhatsApp message after successful submission
       sendWhatsAppNotification();
-
       setSubmitStatus('success');
-      
       setTimeout(() => {
-        onClose();
-      }, 2000);
+        setSubmitStatus('idle');
+        
+        // Reset ALL fields to provide a blank form
+        setQuantity('');
+        setUnitPrice('');
+        setLocation(null);
+        setImages([]);
+        setPreviews([]);
+        setSelectedProvider('');
+        setSelectedOrigin('');
+        setSelectedSpecies('');
+        setSelectedCondition('');
+        
+        setValidationErrors({});
+        setMissingFieldNames([]);
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 1500); // Shorter timeout for better flow
       
     } catch (err) {
-      console.error("Erro na submissão:", err);
-      alert("Houve um problema ao salvar o registo. Verifique sua conexão e tente novamente.");
+      alert("Erro ao enviar. Tente novamente.");
       setSubmitStatus('error');
     }
   };
 
+  const getInputClasses = (hasError: boolean) => 
+    `block w-full px-4 py-3.5 text-base rounded-xl shadow-sm text-slate-900 transition-all placeholder:text-slate-400 ${
+      hasError 
+        ? 'border-2 border-red-500 focus:ring-2 focus:ring-red-200 bg-red-50 focus:border-red-500' 
+        : 'border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
+    }`;
+  
+  const labelClasses = "block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5 ml-1";
+
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
-      <Header title="Novo Registo" showBack onBack={onClose} />
+    <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
+      <Header title="Novo Registo" onNavigate={onNavigate} currentView="FORM" />
       
-      <main className="flex-1 flex flex-col md:p-6">
-        <div className="w-full md:max-w-md md:mx-auto flex flex-col flex-1">
-          <form onSubmit={handlePreSubmit} className="flex flex-col flex-1 bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-100 md:overflow-hidden">
-            <div className="p-6 space-y-6 flex-1">
-              
-              {/* 1. Field: Data da Captura (Icons kept) */}
-              <div className="space-y-2">
-                <label htmlFor="date" className="block text-sm font-bold text-slate-700">
-                  Data da Captura
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Calendar className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    type="date"
-                    id="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      if (submitStatus === 'error') setSubmitStatus('idle');
-                    }}
-                    className="block w-full pl-10 pr-4 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* 2. Field: Nome do Provedor (Icon removed) */}
-              <div className="space-y-2">
-                <label htmlFor="provider" className="block text-sm font-bold text-slate-700">
-                  Nome do Provedor
-                </label>
-                
-                {loading ? (
-                  <div className="h-12 bg-slate-50 rounded-xl border border-slate-200 animate-pulse" />
-                ) : error ? (
-                  <div className="flex items-center gap-2 p-3 text-red-500 bg-red-50 rounded-xl border border-red-100">
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="text-sm">Erro ao carregar dados</span>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <select
-                      id="provider"
-                      value={selectedProvider}
-                      onChange={(e) => {
-                        setSelectedProvider(e.target.value);
-                        if (submitStatus === 'error') setSubmitStatus('idle');
-                      }}
-                      className="block w-full pl-4 pr-10 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 appearance-none transition-colors"
-                    >
-                      <option value="">Selecione um provedor...</option>
-                      {providers.map((provider) => (
-                        <option key={provider.id} value={provider.fullName}>
-                          {provider.fullName}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Field: Origem do Pescado (Icon removed) */}
-              <div className="space-y-2">
-                <label htmlFor="origin" className="block text-sm font-bold text-slate-700">
-                  Origem do Pescado
-                </label>
-                
-                {loading ? (
-                  <div className="h-12 bg-slate-50 rounded-xl border border-slate-200 animate-pulse" />
-                ) : error ? (
-                  <div className="h-12 bg-red-50 rounded-xl border border-red-100" />
-                ) : (
-                  <div className="relative">
-                    <select
-                      id="origin"
-                      value={selectedOrigin}
-                      onChange={(e) => {
-                        setSelectedOrigin(e.target.value);
-                        if (submitStatus === 'error') setSubmitStatus('idle');
-                      }}
-                      className="block w-full pl-4 pr-10 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 appearance-none transition-colors"
-                    >
-                      <option value="">Selecione a origem...</option>
-                      {origins.map((origin, idx) => (
-                        <option key={`origin-${idx}`} value={origin}>
-                          {origin}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 4. Field: Localização Geográfica */}
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-700">
-                  Localização Geográfica
-                </label>
-                
-                {!location ? (
-                  <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center gap-3 text-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                      <Locate className="w-6 h-6" />
-                    </div>
-                    <div className="text-sm text-slate-500 max-w-[200px]">
-                      Necessário capturar a localização atual para validar o registo.
-                    </div>
-                    <Button 
-                      type="button" 
-                      variant="secondary" 
-                      onClick={handleGetLocation}
-                      disabled={locationLoading}
-                      className="w-full sm:w-auto"
-                    >
-                      {locationLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Obtendo GPS...
-                        </>
-                      ) : (
-                        'Capturar Localização'
-                      )}
-                    </Button>
-                    {locationError && (
-                      <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {locationError}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-green-50 rounded-xl border border-green-200 p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex gap-3">
-                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
-                          <MapIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-green-800">Localização Capturada</p>
-                          <p className="text-xs text-green-700 font-mono mt-0.5">
-                            Lat: {location.lat.toFixed(6)}
-                            <br />
-                            Lng: {location.lng.toFixed(6)}
-                          </p>
-                          <a 
-                            href={`https://www.google.com/maps?q=${location.lat},${location.lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-green-600 hover:text-green-800 underline mt-1 inline-block"
-                          >
-                            Ver no Mapa
-                          </a>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleGetLocation}
-                        disabled={locationLoading}
-                        className="text-xs font-medium text-slate-500 hover:text-slate-800 px-2 py-1 bg-white border border-slate-200 rounded-lg transition-colors"
-                      >
-                        {locationLoading ? '...' : 'Atualizar'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 5. Field: Espécie Capturada (Icon removed) */}
-              <div className="space-y-2">
-                <label htmlFor="species" className="block text-sm font-bold text-slate-700">
-                  Espécie Capturada
-                </label>
-                
-                {loading ? (
-                  <div className="h-12 bg-slate-50 rounded-xl border border-slate-200 animate-pulse" />
-                ) : error ? (
-                  <div className="h-12 bg-red-50 rounded-xl border border-red-100" />
-                ) : (
-                  <div className="relative">
-                    <select
-                      id="species"
-                      value={selectedSpecies}
-                      onChange={(e) => {
-                        setSelectedSpecies(e.target.value);
-                        if (submitStatus === 'error') setSubmitStatus('idle');
-                      }}
-                      className="block w-full pl-4 pr-10 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 appearance-none transition-colors"
-                    >
-                      <option value="">Selecione a espécie...</option>
-                      {species.map((s, idx) => (
-                        <option key={`species-${idx}`} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 6. Field: Imagem do Pescado */}
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-700">
-                  Imagem do Pescado <span className="text-xs font-normal text-slate-400 ml-1">(Opcional, máx 5)</span>
-                </label>
-                
-                <div className="space-y-3">
-                  {/* Grid of previews */}
-                  {previews.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {previews.map((url, idx) => (
-                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 group">
-                          <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(idx)}
-                            className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors backdrop-blur-sm"
-                            aria-label="Remover imagem"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upload Button Area */}
-                  {images.length < 5 && (
-                    <div className="relative">
-                      <input
-                        type="file"
-                        id="fish-images"
-                        accept="image/png, image/jpeg, image/jpg"
-                        multiple
-                        className="hidden"
-                        onChange={handleImageSelect}
-                      />
-                      <label
-                        htmlFor="fish-images"
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors active:bg-slate-200"
-                      >
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <Camera className="w-8 h-8 text-slate-400 mb-2" />
-                          <p className="text-sm text-slate-500 font-medium">Toque para adicionar fotos</p>
-                          <p className="text-xs text-slate-400 mt-1">PNG, JPG (Máx 5)</p>
-                        </div>
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 7. Field: Quantidade (Icon removed) */}
-              <div className="space-y-2">
-                <label htmlFor="quantity" className="block text-sm font-bold text-slate-700">
-                  Quantidade
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    id="quantity"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={quantity}
-                    onChange={(e) => {
-                      setQuantity(e.target.value);
-                      if (submitStatus === 'error') setSubmitStatus('idle');
-                    }}
-                    className="block w-full pl-4 pr-12 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 transition-colors placeholder:text-slate-400"
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                    <span className="text-slate-500 font-medium">kg</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 8. Field: Condições (Icon removed) */}
-              <div className="space-y-2">
-                <label htmlFor="condition" className="block text-sm font-bold text-slate-700">
-                  Condições
-                </label>
-                <div className="relative">
-                  <select
-                    id="condition"
-                    value={selectedCondition}
-                    onChange={(e) => {
-                      setSelectedCondition(e.target.value);
-                      if (submitStatus === 'error') setSubmitStatus('idle');
-                    }}
-                    className="block w-full pl-4 pr-10 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 appearance-none transition-colors"
-                  >
-                    <option value="">Selecione a condição...</option>
-                    <option value="Fresco">Fresco</option>
-                    <option value="Congelado">Congelado</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* 9. Field: Preço Unitário (Icon removed) */}
-              <div className="space-y-2">
-                <label htmlFor="unitPrice" className="block text-sm font-bold text-slate-700">
-                  Preço Unitário (Kg)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    id="unitPrice"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={unitPrice}
-                    onChange={(e) => {
-                      setUnitPrice(e.target.value);
-                      if (submitStatus === 'error') setSubmitStatus('idle');
-                    }}
-                    className="block w-full pl-4 pr-12 py-3 text-base border-slate-200 focus:ring-slate-900 focus:border-slate-900 rounded-xl bg-slate-50 text-slate-900 transition-colors placeholder:text-slate-400"
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                    <span className="text-slate-500 font-medium">MT</span>
-                  </div>
-                </div>
-                
-                {/* Total Calculation Display */}
-                {(quantity || unitPrice) && (
-                  <div className="flex items-center justify-between p-3 bg-slate-100 rounded-xl text-sm border border-slate-200">
-                    <span className="text-slate-600 font-medium">Total Estimado</span>
-                    <span className="text-slate-900 font-bold text-base">{calculateTotal()} MT</span>
-                  </div>
-                )}
-              </div>
-
-              {submitStatus === 'error' && (!selectedProvider || !selectedOrigin || !selectedSpecies || !selectedCondition || !quantity || !unitPrice || !location || !selectedDate) && (
-                <div className="p-3 rounded-xl bg-red-50 text-red-600 text-sm flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  <p>Por favor, preencha todos os campos obrigatórios e capture a localização.</p>
-                </div>
-              )}
-              
-              {loading && (
-                <div className="text-center text-sm text-slate-400 flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Sincronizando dados...
-                </div>
-              )}
-
-            </div>
-
-            <div className="p-6 bg-white md:bg-slate-50 border-t border-slate-100 sticky bottom-0 z-10 md:static shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:shadow-none space-y-4">
-              <Button 
-                type="submit" 
-                fullWidth 
-                disabled={loading || !!error || submitStatus === 'submitting' || submitStatus === 'success'}
-                className={submitStatus === 'success' ? '!bg-green-600' : ''}
-              >
-                {submitStatus === 'submitting' ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Enviando...
-                  </>
-                ) : submitStatus === 'success' ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5 mr-2" />
-                    Registado!
-                  </>
-                ) : (
-                  'Submeter Registo'
-                )}
-              </Button>
-
-              <div className="text-center">
-                 <button 
-                  type="button"
-                  onClick={onOpenHistory} 
-                  className="text-xs font-medium text-slate-500 hover:text-slate-900 underline underline-offset-4"
-                >
-                  Histórico
-                </button>
-              </div>
-            </div>
-          </form>
+      <main className="flex-1 p-4">
+        <div className="mb-8">
+          <h2 className="text-2xl font-black text-slate-900 font-rounded mb-1">Pescado do Dia</h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+             Preencha os dados abaixo para registar uma nova captura e atualizar o stock disponível.
+          </p>
         </div>
+
+        <hr className="border-slate-100 mb-8" />
+
+        <form onSubmit={handlePreSubmit} className="space-y-6">
+            
+            {/* Date */}
+            <div>
+              <label htmlFor="date" className={labelClasses}>
+                Data da Captura {validationErrors.date && <span className="text-red-500">*</span>}
+              </label>
+              <div className="relative">
+                <input 
+                  type="date" 
+                  id="date" 
+                  value={selectedDate} 
+                  onChange={(e) => { setSelectedDate(e.target.value); clearError('date'); }} 
+                  className={getInputClasses(!!validationErrors.date)} 
+                />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Provider */}
+            <div>
+              <label htmlFor="provider" className={labelClasses}>
+                Provedor {validationErrors.provider && <span className="text-red-500">*</span>}
+              </label>
+              <div className="relative">
+                <select 
+                  id="provider" 
+                  value={selectedProvider} 
+                  onChange={(e) => { setSelectedProvider(e.target.value); clearError('provider'); }} 
+                  className={`${getInputClasses(!!validationErrors.provider)} appearance-none`}
+                >
+                  <option value="">Selecione...</option>
+                  {providers.map((p) => <option key={p.id} value={p.fullName}>{p.fullName}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Origin */}
+            <div>
+              <label htmlFor="origin" className={labelClasses}>
+                Origem (Praia) {validationErrors.origin && <span className="text-red-500">*</span>}
+              </label>
+              <div className="relative">
+                <select 
+                  id="origin" 
+                  value={selectedOrigin} 
+                  onChange={(e) => { setSelectedOrigin(e.target.value); clearError('origin'); }} 
+                  className={`${getInputClasses(!!validationErrors.origin)} appearance-none`}
+                >
+                  <option value="">Selecione...</option>
+                  {origins.map((o, i) => <option key={i} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className={labelClasses}>
+                Geolocalização {validationErrors.location && <span className="text-red-500">*</span>}
+              </label>
+              {!location ? (
+                <div className={validationErrors.location ? 'rounded-xl p-0.5 border-2 border-red-500' : ''}>
+                  <button 
+                    type="button" 
+                    onClick={handleGetLocation} 
+                    disabled={locationLoading} 
+                    className={`w-full py-4 border-2 border-dashed rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-sm ${validationErrors.location ? 'bg-red-50 border-red-200 text-red-700' : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
+                  >
+                    {locationLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <Locate className="w-5 h-5" />}
+                    {locationLoading ? 'Obtendo GPS...' : 'Extrair Localização do Dispositivo'}
+                  </button>
+                  
+                  {isLocationDisabled && (
+                     <div className="flex items-start gap-2 mt-2 px-1">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-600 font-medium">
+                          A localização parece estar desativada. Por favor, ative o GPS do seu dispositivo e tente novamente.
+                        </p>
+                     </div>
+                  )}
+                  {locationError && <p className="text-xs text-red-500 mt-2 ml-1 font-medium">{locationError}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-white border border-green-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-100 p-2 rounded-full text-green-600"><MapIcon className="w-5 h-5" /></div>
+                    <div className="text-xs text-green-800">
+                      <div className="font-bold">Localização OK</div>
+                      <div className="font-mono">{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</div>
+                    </div>
+                  </div>
+                  <button type="button" onClick={handleGetLocation} className="text-xs font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-lg shadow-sm border border-green-100 hover:bg-green-100">Atualizar</button>
+                </div>
+              )}
+            </div>
+
+            {/* Species */}
+            <div>
+              <label htmlFor="species" className={labelClasses}>
+                Espécie {validationErrors.species && <span className="text-red-500">*</span>}
+              </label>
+              <select 
+                id="species" 
+                value={selectedSpecies} 
+                onChange={(e) => { setSelectedSpecies(e.target.value); clearError('species'); }} 
+                className={`${getInputClasses(!!validationErrors.species)} appearance-none`}
+              >
+                <option value="">Selecione...</option>
+                {species.map((s, i) => <option key={i} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* Condition */}
+            <div>
+              <label htmlFor="condition" className={labelClasses}>
+                Estado {validationErrors.condition && <span className="text-red-500">*</span>}
+              </label>
+              <select 
+                id="condition" 
+                value={selectedCondition} 
+                onChange={(e) => { setSelectedCondition(e.target.value); clearError('condition'); }} 
+                className={`${getInputClasses(!!validationErrors.condition)} appearance-none`}
+              >
+                <option value="">Selecione...</option>
+                <option value="Fresco">Fresco</option>
+                <option value="Congelado">Congelado</option>
+              </select>
+            </div>
+
+            {/* Quantity & Price */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="quantity" className={labelClasses}>
+                  Qtd (Kg) {validationErrors.quantity && <span className="text-red-500">*</span>}
+                </label>
+                <input 
+                  type="number" 
+                  id="quantity" 
+                  inputMode="decimal" 
+                  step="0.01" 
+                  placeholder="0.00" 
+                  value={quantity} 
+                  onChange={(e) => { setQuantity(e.target.value); clearError('quantity'); }} 
+                  className={getInputClasses(!!validationErrors.quantity)} 
+                />
+              </div>
+              <div>
+                <label htmlFor="unitPrice" className={labelClasses}>
+                  Preço Kg (MZN) {validationErrors.unitPrice && <span className="text-red-500">*</span>}
+                </label>
+                <input 
+                  type="number" 
+                  id="unitPrice" 
+                  inputMode="decimal" 
+                  step="0.01" 
+                  placeholder="0.00" 
+                  value={unitPrice} 
+                  onChange={(e) => { setUnitPrice(e.target.value); clearError('unitPrice'); }} 
+                  className={getInputClasses(!!validationErrors.unitPrice)} 
+                />
+                {(quantity || unitPrice) && (
+                  <p className="text-xs text-right mt-1.5 font-medium text-slate-500">
+                    Total Estimado: <span className="font-bold text-slate-900">{calculateTotal()} MZN</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Images */}
+            <div>
+              <label className={labelClasses}>Fotos (Opcional)</label>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {previews.map((url, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
+                  </div>
+                ))}
+                {images.length < 5 && (
+                  <label className="aspect-square rounded-lg border-2 border-dashed border-slate-300 bg-white shadow-sm flex flex-col items-center justify-center text-slate-400 cursor-pointer active:bg-slate-50 transition-colors">
+                    <Camera className="w-6 h-6 mb-1" />
+                    <span className="text-[10px] font-bold">Add</span>
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <Button type="submit" fullWidth disabled={loading || submitStatus === 'submitting'} className="h-14 text-lg font-bold shadow-xl shadow-blue-900/10">
+              {submitStatus === 'submitting' ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> A enviar...</> : 'Submeter Pescado do Dia'}
+            </Button>
+        </form>
       </main>
+
+      {/* Validation Modal */}
+      {showValidationModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full animate-in zoom-in-95 border border-slate-100">
+              <div className="flex flex-col items-center text-center space-y-4">
+                 <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-amber-500" />
+                 </div>
+                 <div className="space-y-2 w-full">
+                    <h3 className="font-bold text-slate-900 text-lg">Campos em falta</h3>
+                    
+                    {missingFieldNames.length > 0 && (
+                      <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-left w-full my-2">
+                         <p className="text-xs font-bold text-red-800 uppercase mb-2">Preencha os seguintes campos:</p>
+                         <ul className="list-disc list-inside text-sm text-red-700 space-y-1 font-medium">
+                            {missingFieldNames.map((field, i) => (
+                              <li key={i}>{field}</li>
+                            ))}
+                         </ul>
+                      </div>
+                    )}
+                    
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Os campos obrigatórios foram destacados a vermelho.
+                    </p>
+                 </div>
+                 <Button onClick={() => setShowValidationModal(false)} fullWidth className="mt-2 h-12">
+                   Entendido
+                 </Button>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {showConfirmation && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div 
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" 
-            onClick={() => setShowConfirmation(false)} 
-            aria-hidden="true"
-          />
-          <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-200">
-            
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h3 className="text-xl font-bold text-slate-900">Confirmar Dados</h3>
-              <button 
-                onClick={() => setShowConfirmation(false)} 
-                className="p-2 -mr-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
-                type="button"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-lg">Confirmação</h3>
+              <button onClick={() => setShowConfirmation(false)} className="p-2 bg-slate-100 rounded-full text-slate-500"><X className="w-4 h-4" /></button>
             </div>
-
-            <div className="p-6 overflow-y-auto space-y-5">
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Data</p>
-                    <p className="text-slate-900 font-medium">{selectedDate.split('-').reverse().join('/')}</p>
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Espécie</p>
-                    <p className="text-slate-900 font-medium">{selectedSpecies}</p>
-                 </div>
-               </div>
-
-               <div className="space-y-1">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Provedor</p>
-                  <p className="text-slate-900 font-medium">{selectedProvider}</p>
-               </div>
-
-               <div className="space-y-1">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Origem</p>
-                  <p className="text-slate-900 font-medium">{selectedOrigin}</p>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Quantidade</p>
-                    <p className="text-slate-900 font-medium">{quantity} kg</p>
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Condição</p>
-                    <p className="text-slate-900 font-medium">{selectedCondition}</p>
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Preço Unit.</p>
-                    <p className="text-slate-900 font-medium">{unitPrice} MT</p>
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</p>
-                    <p className="text-blue-600 font-bold">{calculateTotal()} MT</p>
-                 </div>
-               </div>
-
-               <div className="space-y-1">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Localização</p>
-                  <p className="text-slate-900 font-mono text-sm">
-                    {location?.lat.toFixed(6)}, {location?.lng.toFixed(6)}
-                  </p>
-               </div>
-
-               {images.length > 0 && (
-                 <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Imagens ({images.length})</p>
-                    <div className="flex gap-2 overflow-x-auto pb-2">
-                      {previews.map((url, idx) => (
-                        <div key={idx} className="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-slate-200">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                 </div>
-               )}
-
-               <div className="bg-slate-100 border border-slate-200 rounded-xl p-4">
-                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
-                   Atenção
-                 </h4>
-                 <p className="text-xs text-slate-900 leading-relaxed">
-                   Caro Agente, após clicar em Confirmar, você será redirecionado para a nossa Assistência no WhatsApp. É necessário que confirme o envio da mensagem para nossa equipe para que o registo seja validado e visto pelos clientes.
-                 </p>
-               </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl shrink-0 gap-3 flex">
-               <Button 
-                 variant="secondary" 
-                 onClick={() => setShowConfirmation(false)} 
-                 className="flex-1"
-                 type="button"
-               >
-                 Voltar
-               </Button>
-               <Button 
-                 onClick={executeSubmission} 
-                 className="flex-1"
-                 type="button"
-               >
-                 Confirmar
-               </Button>
+            <div className="p-5 space-y-4">
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Espécie</span> <span className="font-bold text-slate-900">{selectedSpecies}</span></div>
+                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Qtd.</span> <span className="font-bold text-slate-900">{quantity} kg</span></div>
+                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Preço</span> <span className="font-bold text-slate-900">{unitPrice} MZN</span></div>
+                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Total</span> <span className="font-bold text-blue-600">{calculateTotal()} MZN</span></div>
+                <div className="flex justify-between py-1"><span className="text-slate-500">Origem</span> <span className="font-bold text-slate-900">{selectedOrigin}</span></div>
+              </div>
+              <div className="bg-amber-50 text-amber-800 text-xs p-3 rounded-xl leading-relaxed">
+                Ao confirmar, você será redirecionado para o WhatsApp para finalizar o registo.
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Button variant="secondary" onClick={() => setShowConfirmation(false)}>Cancelar</Button>
+                <Button onClick={executeSubmission}>Confirmar</Button>
+              </div>
             </div>
           </div>
         </div>
