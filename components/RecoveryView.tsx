@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Header } from './Header';
 import { Button } from './Button';
 import { ViewState } from '../types';
 import { Send, ArrowLeft } from 'lucide-react';
@@ -38,11 +37,14 @@ export const RecoveryView: React.FC<RecoveryViewProps> = ({ onNavigate }) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      <Header 
-        title="Recuperação" 
-        onNavigate={onNavigate}
-        currentView="RECOVERY"
-      />
+      {/* Simple Header */}
+      <div className="flex justify-center pt-8 pb-4">
+        <img 
+          src="https://i.postimg.cc/bNBDGq5Q/ehopa-agent-logo.png" 
+          alt="Logo" 
+          className="h-12 w-auto object-contain grayscale opacity-60"
+        />
+      </div>
       
       <main className="flex-1 flex flex-col justify-center p-6 md:p-8 max-w-md mx-auto w-full">
         

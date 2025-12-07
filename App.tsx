@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RegistrationForm } from './components/RegistrationForm';
 import { HistoryView } from './components/HistoryView';
 import { HelpView } from './components/HelpView';
@@ -16,8 +16,36 @@ import { ViewState, ProviderStats } from './types';
 import { Smartphone, Tablet } from 'lucide-react';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewState>('FORM');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [profoundLoading, setProfoundLoading] = useState<boolean>(true); // For initial load
+  const [currentView, setCurrentView] = useState<ViewState>('AUTH');
   const [selectedProvider, setSelectedProvider] = useState<ProviderStats | null>(null);
+
+  useEffect(() => {
+    // Check for existing session on mount
+    const storedProfile = localStorage.getItem('ehopa_user_profile');
+    if (storedProfile) {
+      setIsAuthenticated(true);
+      setCurrentView('FORM');
+    } else {
+      setIsAuthenticated(false);
+      setCurrentView('AUTH');
+    }
+    setProfoundLoading(false);
+  }, []);
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    setCurrentView('FORM');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('ehopa_user_profile');
+    setIsAuthenticated(false);
+    setCurrentView('AUTH');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
@@ -30,6 +58,14 @@ export default function App() {
   };
 
   const renderView = () => {
+    // Force Auth view if not authenticated, unless accessing Recovery
+    if (!isAuthenticated) {
+       if (currentView === 'RECOVERY') {
+         return <RecoveryView onNavigate={handleNavigate} />;
+       }
+       return <AuthView onLoginSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
+    }
+
     switch (currentView) {
       case 'FORM':
         return <RegistrationForm onNavigate={handleNavigate} />;
@@ -37,10 +73,11 @@ export default function App() {
         return <HistoryView onNavigate={handleNavigate} />;
       case 'HELP':
         return <HelpView onNavigate={handleNavigate} />;
-      case 'AUTH':
-        return <AuthView onNavigate={handleNavigate} />;
+      // Auth/Recovery handled above or in specific flow cases
+      case 'AUTH': 
+         return <AuthView onLoginSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
       case 'RECOVERY':
-        return <RecoveryView onNavigate={handleNavigate} />;
+         return <RecoveryView onNavigate={handleNavigate} />;
       case 'REVENUE':
         return <RevenueView onNavigate={handleNavigate} onSelectProvider={handleSelectProvider} />;
       case 'PROVIDER_DETAIL':
@@ -52,11 +89,13 @@ export default function App() {
       case 'DELIVERY_LOG':
         return <DeliveryLogView onNavigate={handleNavigate} provider={selectedProvider} />;
       case 'PROFILE':
-        return <ProfileView onNavigate={handleNavigate} />;
+        return <ProfileView onNavigate={handleNavigate} onLogout={handleLogout} />;
       default:
         return <RegistrationForm onNavigate={handleNavigate} />;
     }
   };
+
+  if (profoundLoading) return null; // Or a splash screen
 
   return (
     <>
@@ -64,12 +103,12 @@ export default function App() {
       <div className="lg:hidden min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
         {renderView()}
         
-        {/* Show Bottom Nav only if not in Auth view or Recovery view */}
-        {currentView !== 'AUTH' && currentView !== 'RECOVERY' && (
+        {/* Show Bottom Nav only if authenticated */}
+        {isAuthenticated && (
           <BottomNav currentView={currentView} onNavigate={handleNavigate} />
         )}
         
-        <UpdateBanner />
+        {isAuthenticated && <UpdateBanner />}
       </div>
 
       {/* Desktop Block Message - Visible only on Laptop+ (>= 1024px) */}

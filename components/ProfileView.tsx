@@ -6,6 +6,7 @@ import { Camera, LogOut, Save, User } from 'lucide-react';
 
 interface ProfileViewProps {
   onNavigate: (view: ViewState) => void;
+  onLogout?: () => void;
 }
 
 const DEFAULT_PROFILE: UserProfile = {
@@ -26,7 +27,7 @@ const DEFAULT_PROFILE: UserProfile = {
 
 const AUTH_API_URL = 'https://sheetdb.io/api/v1/5dieu2x35n3q2';
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate, onLogout }) => {
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [originalEmail, setOriginalEmail] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -120,11 +121,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleLogout = () => {
-    // In a real application, you would clear authentication tokens here.
-    // For this prototype, we redirect to the Auth view.
-    // Optional: localStorage.removeItem('ehopa_user_profile'); 
-    onNavigate('AUTH');
+  const handleLogoutClick = () => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      // Fallback
+      onNavigate('AUTH');
+    }
   };
 
   const inputClasses = "w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-slate-900 placeholder:text-slate-400";
@@ -262,7 +265,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
 
             <button 
               type="button"
-              onClick={handleLogout} 
+              onClick={handleLogoutClick} 
               className="w-full flex items-center justify-center gap-2 text-red-600 font-bold text-sm py-3 hover:bg-red-50 rounded-xl transition-colors"
             >
               <LogOut className="w-4 h-4" />

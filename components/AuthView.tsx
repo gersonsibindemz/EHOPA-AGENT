@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Header } from './Header';
 import { Button } from './Button';
 import { ViewState } from '../types';
 import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 interface AuthViewProps {
   onNavigate: (view: ViewState) => void;
+  onLoginSuccess?: () => void;
 }
 
 const AUTH_API_URL = 'https://sheetdb.io/api/v1/5dieu2x35n3q2';
 
-export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
+export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   
@@ -144,7 +144,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
                 photoUrl: existingPhotoUrl
               };
               localStorage.setItem('ehopa_user_profile', JSON.stringify(profile));
-              onNavigate('FORM');
+              
+              if (onLoginSuccess) {
+                onLoginSuccess();
+              } else {
+                onNavigate('FORM');
+              }
            } else {
              showMessage('error', "A senha inserida está incorreta.");
            }
@@ -190,7 +195,13 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
         localStorage.setItem('ehopa_user_profile', JSON.stringify(profile));
         
         showMessage('success', "Conta criada com sucesso! A redirecionar...");
-        setTimeout(() => onNavigate('FORM'), 1500);
+        setTimeout(() => {
+          if (onLoginSuccess) {
+            onLoginSuccess();
+          } else {
+            onNavigate('FORM');
+          }
+        }, 1500);
       }
     } catch (error) {
       console.error(error);
@@ -207,19 +218,23 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate }) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      <Header 
-        title={isLogin ? "Login" : "Registar"} 
-        onNavigate={onNavigate}
-        currentView="AUTH"
-      />
+      
+      {/* Simple Auth Header */}
+      <div className="flex justify-center pt-8 pb-4">
+        <img 
+          src="https://i.postimg.cc/bNBDGq5Q/ehopa-agent-logo.png" 
+          alt="Logo" 
+          className="h-16 w-auto object-contain"
+        />
+      </div>
       
       <main className="flex-1 flex flex-col justify-center p-6 md:p-8 max-w-md mx-auto w-full">
-        <div className="mb-8">
+        <div className="mb-8 text-center">
           <h2 className="text-3xl font-black text-slate-900 font-rounded mb-2">
             {isLogin ? 'Bem-vindo' : 'Criar Conta'}
           </h2>
           <p className="text-slate-500">
-            {isLogin ? 'Faça login para continuar.' : 'Preencha os dados para começar.'}
+            {isLogin ? 'Faça login para aceder à plataforma.' : 'Preencha os dados para começar.'}
           </p>
         </div>
 
