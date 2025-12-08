@@ -430,249 +430,245 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
   };
 
   const getInputClasses = (hasError: boolean) => 
-    `block w-full px-4 py-3.5 text-base rounded-xl shadow-sm text-slate-900 transition-all placeholder:text-slate-400 ${
+    `block w-full px-3 py-2.5 text-sm rounded-lg shadow-sm text-slate-900 transition-all placeholder:text-slate-400 ${
       hasError 
         ? 'border-2 border-red-500 focus:ring-2 focus:ring-red-200 bg-red-50 focus:border-red-500' 
         : 'border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
     }`;
   
-  const labelClasses = "block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5 ml-1";
+  const labelClasses = "block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1 ml-0.5";
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
       <Header title="Novo Registo" onNavigate={onNavigate} currentView="FORM" />
       
-      <main className="flex-1 p-4">
-        <div className="mb-8">
-          <h2 className="text-2xl font-black text-slate-900 font-rounded mb-1">Pescado do Dia</h2>
-          <p className="text-sm text-slate-600 leading-relaxed">
-             Preencha os dados abaixo para registar uma nova captura e atualizar o stock disponível.
-          </p>
-        </div>
-
-        <hr className="border-slate-100 mb-8" />
-
-        <form onSubmit={handlePreSubmit} className="space-y-6">
-            
-            {/* Date */}
-            <div>
-              <label htmlFor="date" className={labelClasses}>
-                Data da Captura {validationErrors.date && <span className="text-red-500">*</span>}
-              </label>
-              <div className="relative">
-                <input 
-                  type="date" 
-                  id="date" 
-                  value={selectedDate} 
-                  onChange={(e) => { setSelectedDate(e.target.value); clearError('date'); }} 
-                  className={getInputClasses(!!validationErrors.date)} 
-                />
-                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-              </div>
+      <main className="flex-1 p-3 flex justify-center items-start">
+        <div className="w-full max-w-[340px] bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="mb-5 text-center">
+              <h2 className="text-lg font-black text-slate-900 font-rounded mb-1">Pescado do Dia</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                 Preencha os dados abaixo para registar captura.
+              </p>
             </div>
 
-            {/* Provider */}
-            <div>
-              <label htmlFor="provider" className={labelClasses}>
-                Provedor {validationErrors.provider && <span className="text-red-500">*</span>}
-              </label>
-              <div className="relative">
-                <select 
-                  id="provider" 
-                  value={selectedProvider} 
-                  onChange={(e) => { setSelectedProvider(e.target.value); clearError('provider'); }} 
-                  className={`${getInputClasses(!!validationErrors.provider)} appearance-none`}
-                >
-                  <option value="">Selecione...</option>
-                  {providers.map((p) => <option key={p.id} value={p.fullName}>{p.fullName}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Origin */}
-            <div>
-              <label htmlFor="origin" className={labelClasses}>
-                Origem (Praia) {validationErrors.origin && <span className="text-red-500">*</span>}
-              </label>
-              <div className="relative">
-                <select 
-                  id="origin" 
-                  value={selectedOrigin} 
-                  onChange={(e) => { setSelectedOrigin(e.target.value); clearError('origin'); }} 
-                  className={`${getInputClasses(!!validationErrors.origin)} appearance-none`}
-                >
-                  <option value="">Selecione...</option>
-                  {origins.map((o, i) => <option key={i} value={o}>{o}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Location */}
-            <div>
-              <label className={labelClasses}>
-                Geolocalização {validationErrors.location && <span className="text-red-500">*</span>}
-              </label>
-              {!location ? (
-                <div className={validationErrors.location ? 'rounded-xl p-0.5 border-2 border-red-500' : ''}>
-                  <button 
-                    type="button" 
-                    onClick={handleGetLocation} 
-                    disabled={locationLoading} 
-                    className={`w-full py-4 border-2 border-dashed rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-sm ${validationErrors.location ? 'bg-red-50 border-red-200 text-red-700' : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
-                  >
-                    {locationLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <Locate className="w-5 h-5" />}
-                    {locationLoading ? 'Obtendo GPS...' : 'Extrair Localização do Dispositivo'}
-                  </button>
-                  
-                  {isLocationDisabled && (
-                     <div className="flex items-start gap-2 mt-2 px-1">
-                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-600 font-medium">
-                          A localização parece estar desativada. Por favor, ative o GPS do seu dispositivo e tente novamente.
-                        </p>
-                     </div>
-                  )}
-                  {locationError && <p className="text-xs text-red-500 mt-2 ml-1 font-medium">{locationError}</p>}
-                </div>
-              ) : (
-                <div className="flex items-center justify-between bg-white border border-green-200 rounded-xl p-3 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-green-100 p-2 rounded-full text-green-600"><MapIcon className="w-5 h-5" /></div>
-                    <div className="text-xs text-green-800">
-                      <div className="font-bold">Localização OK</div>
-                      <div className="font-mono">{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</div>
-                    </div>
-                  </div>
-                  <button type="button" onClick={handleGetLocation} className="text-xs font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-lg shadow-sm border border-green-100 hover:bg-green-100">Atualizar</button>
-                </div>
-              )}
-            </div>
-
-            {/* Species */}
-            <div>
-              <label htmlFor="species" className={labelClasses}>
-                Espécie {validationErrors.species && <span className="text-red-500">*</span>}
-              </label>
-              <select 
-                id="species" 
-                value={selectedSpecies} 
-                onChange={(e) => { setSelectedSpecies(e.target.value); clearError('species'); }} 
-                className={`${getInputClasses(!!validationErrors.species)} appearance-none`}
-              >
-                <option value="">Selecione...</option>
-                {species.map((s, i) => <option key={i} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            {/* Condition */}
-            <div>
-              <label htmlFor="condition" className={labelClasses}>
-                Estado {validationErrors.condition && <span className="text-red-500">*</span>}
-              </label>
-              <select 
-                id="condition" 
-                value={selectedCondition} 
-                onChange={(e) => { setSelectedCondition(e.target.value); clearError('condition'); }} 
-                className={`${getInputClasses(!!validationErrors.condition)} appearance-none`}
-              >
-                <option value="">Selecione...</option>
-                <option value="Fresco">Fresco</option>
-                <option value="Congelado">Congelado</option>
-              </select>
-            </div>
-
-            {/* Quantity & Price */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="quantity" className={labelClasses}>
-                  Qtd (Kg) {validationErrors.quantity && <span className="text-red-500">*</span>}
-                </label>
-                <input 
-                  type="number" 
-                  id="quantity" 
-                  inputMode="decimal" 
-                  step="0.01" 
-                  placeholder="0.00" 
-                  value={quantity} 
-                  onChange={(e) => { setQuantity(e.target.value); clearError('quantity'); }} 
-                  className={getInputClasses(!!validationErrors.quantity)} 
-                />
-              </div>
-              <div>
-                <label htmlFor="unitPrice" className={labelClasses}>
-                  Preço Kg (MZN) {validationErrors.unitPrice && <span className="text-red-500">*</span>}
-                </label>
-                <input 
-                  type="number" 
-                  id="unitPrice" 
-                  inputMode="decimal" 
-                  step="0.01" 
-                  placeholder="0.00" 
-                  value={unitPrice} 
-                  onChange={(e) => { setUnitPrice(e.target.value); clearError('unitPrice'); }} 
-                  className={getInputClasses(!!validationErrors.unitPrice)} 
-                />
-                {(quantity || unitPrice) && (
-                  <p className="text-xs text-right mt-1.5 font-medium text-slate-500">
-                    Total Estimado: <span className="font-bold text-slate-900">{calculateTotal()} MZN</span>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Images */}
-            <div>
-              <label className={labelClasses}>Fotos (Opcional)</label>
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {previews.map((url, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
-                  </div>
-                ))}
-                {images.length < 5 && (
-                  <label className="aspect-square rounded-lg border-2 border-dashed border-slate-300 bg-white shadow-sm flex flex-col items-center justify-center text-slate-400 cursor-pointer active:bg-slate-50 transition-colors">
-                    <Camera className="w-6 h-6 mb-1" />
-                    <span className="text-[10px] font-bold">Add</span>
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+            <form onSubmit={handlePreSubmit} className="space-y-4">
+                
+                {/* Date */}
+                <div>
+                  <label htmlFor="date" className={labelClasses}>
+                    Data da Captura {validationErrors.date && <span className="text-red-500">*</span>}
                   </label>
-                )}
-              </div>
-            </div>
+                  <div className="relative">
+                    <input 
+                      type="date" 
+                      id="date" 
+                      value={selectedDate} 
+                      onChange={(e) => { setSelectedDate(e.target.value); clearError('date'); }} 
+                      className={getInputClasses(!!validationErrors.date)} 
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
 
-            <Button type="submit" fullWidth disabled={loading || submitStatus === 'submitting'} className="h-14 text-lg font-bold shadow-xl shadow-blue-900/10">
-              {submitStatus === 'submitting' ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> A enviar...</> : 'Submeter Pescado do Dia'}
-            </Button>
-        </form>
+                {/* Provider */}
+                <div>
+                  <label htmlFor="provider" className={labelClasses}>
+                    Provedor {validationErrors.provider && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="relative">
+                    <select 
+                      id="provider" 
+                      value={selectedProvider} 
+                      onChange={(e) => { setSelectedProvider(e.target.value); clearError('provider'); }} 
+                      className={`${getInputClasses(!!validationErrors.provider)} appearance-none`}
+                    >
+                      <option value="">Selecione...</option>
+                      {providers.map((p) => <option key={p.id} value={p.fullName}>{p.fullName}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Origin */}
+                <div>
+                  <label htmlFor="origin" className={labelClasses}>
+                    Origem (Praia) {validationErrors.origin && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="relative">
+                    <select 
+                      id="origin" 
+                      value={selectedOrigin} 
+                      onChange={(e) => { setSelectedOrigin(e.target.value); clearError('origin'); }} 
+                      className={`${getInputClasses(!!validationErrors.origin)} appearance-none`}
+                    >
+                      <option value="">Selecione...</option>
+                      {origins.map((o, i) => <option key={i} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <label className={labelClasses}>
+                    Geolocalização {validationErrors.location && <span className="text-red-500">*</span>}
+                  </label>
+                  {!location ? (
+                    <div className={validationErrors.location ? 'rounded-lg p-0.5 border-2 border-red-500' : ''}>
+                      <button 
+                        type="button" 
+                        onClick={handleGetLocation} 
+                        disabled={locationLoading} 
+                        className={`w-full py-2.5 border border-dashed rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-sm ${validationErrors.location ? 'bg-red-50 border-red-200 text-red-700' : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
+                      >
+                        {locationLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Locate className="w-4 h-4" />}
+                        {locationLoading ? 'Obtendo...' : 'Obter GPS'}
+                      </button>
+                      
+                      {isLocationDisabled && (
+                         <div className="flex items-start gap-2 mt-2 px-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-amber-600 font-medium">
+                              Ative o GPS do dispositivo.
+                            </p>
+                         </div>
+                      )}
+                      {locationError && <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">{locationError}</p>}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-white border border-green-200 rounded-lg p-2.5 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-green-100 p-1.5 rounded-full text-green-600"><MapIcon className="w-4 h-4" /></div>
+                        <div className="text-[10px] text-green-800">
+                          <div className="font-bold">GPS OK</div>
+                          <div className="font-mono">{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</div>
+                        </div>
+                      </div>
+                      <button type="button" onClick={handleGetLocation} className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-1 rounded border border-green-100 hover:bg-green-100">Atualizar</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Species */}
+                <div>
+                  <label htmlFor="species" className={labelClasses}>
+                    Espécie {validationErrors.species && <span className="text-red-500">*</span>}
+                  </label>
+                  <select 
+                    id="species" 
+                    value={selectedSpecies} 
+                    onChange={(e) => { setSelectedSpecies(e.target.value); clearError('species'); }} 
+                    className={`${getInputClasses(!!validationErrors.species)} appearance-none`}
+                  >
+                    <option value="">Selecione...</option>
+                    {species.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                {/* Condition */}
+                <div>
+                  <label htmlFor="condition" className={labelClasses}>
+                    Estado {validationErrors.condition && <span className="text-red-500">*</span>}
+                  </label>
+                  <select 
+                    id="condition" 
+                    value={selectedCondition} 
+                    onChange={(e) => { setSelectedCondition(e.target.value); clearError('condition'); }} 
+                    className={`${getInputClasses(!!validationErrors.condition)} appearance-none`}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="Fresco">Fresco</option>
+                    <option value="Congelado">Congelado</option>
+                  </select>
+                </div>
+
+                {/* Quantity & Price */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="quantity" className={labelClasses}>
+                      Qtd (Kg) {validationErrors.quantity && <span className="text-red-500">*</span>}
+                    </label>
+                    <input 
+                      type="number" 
+                      id="quantity" 
+                      inputMode="decimal" 
+                      step="0.01" 
+                      placeholder="0.00" 
+                      value={quantity} 
+                      onChange={(e) => { setQuantity(e.target.value); clearError('quantity'); }} 
+                      className={getInputClasses(!!validationErrors.quantity)} 
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="unitPrice" className={labelClasses}>
+                      Preço Kg {validationErrors.unitPrice && <span className="text-red-500">*</span>}
+                    </label>
+                    <input 
+                      type="number" 
+                      id="unitPrice" 
+                      inputMode="decimal" 
+                      step="0.01" 
+                      placeholder="0.00" 
+                      value={unitPrice} 
+                      onChange={(e) => { setUnitPrice(e.target.value); clearError('unitPrice'); }} 
+                      className={getInputClasses(!!validationErrors.unitPrice)} 
+                    />
+                  </div>
+                </div>
+                
+                {(quantity || unitPrice) && (
+                   <p className="text-xs text-right font-medium text-slate-500 border-t border-slate-50 pt-2">
+                     Total Estimado: <span className="font-bold text-slate-900">{calculateTotal()} MZN</span>
+                   </p>
+                )}
+
+                {/* Images */}
+                <div>
+                  <label className={labelClasses}>Fotos (Opcional)</label>
+                  <div className="grid grid-cols-4 gap-2 mt-1">
+                    {previews.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm">
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
+                      </div>
+                    ))}
+                    {images.length < 5 && (
+                      <label className="aspect-square rounded-lg border border-dashed border-slate-300 bg-slate-50 shadow-sm flex flex-col items-center justify-center text-slate-400 cursor-pointer active:bg-slate-100 transition-colors">
+                        <Camera className="w-5 h-5 mb-1" />
+                        <span className="text-[9px] font-bold">Add</span>
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <Button type="submit" fullWidth disabled={loading || submitStatus === 'submitting'} className="h-12 text-base font-bold shadow-lg shadow-blue-900/10 mt-2">
+                  {submitStatus === 'submitting' ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> A enviar...</> : 'Submeter Pescado'}
+                </Button>
+            </form>
+        </div>
       </main>
 
       {/* Validation Modal */}
       {showValidationModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full animate-in zoom-in-95 border border-slate-100">
-              <div className="flex flex-col items-center text-center space-y-4">
-                 <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-amber-500" />
+           <div className="bg-white rounded-2xl shadow-xl p-5 max-w-xs w-full animate-in zoom-in-95 border border-slate-100">
+              <div className="flex flex-col items-center text-center space-y-3">
+                 <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
                  </div>
                  <div className="space-y-2 w-full">
-                    <h3 className="font-bold text-slate-900 text-lg">Campos em falta</h3>
+                    <h3 className="font-bold text-slate-900 text-base">Campos em falta</h3>
                     
                     {missingFieldNames.length > 0 && (
-                      <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-left w-full my-2">
-                         <p className="text-xs font-bold text-red-800 uppercase mb-2">Preencha os seguintes campos:</p>
-                         <ul className="list-disc list-inside text-sm text-red-700 space-y-1 font-medium">
+                      <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-left w-full my-1">
+                         <ul className="list-disc list-inside text-xs text-red-700 space-y-1 font-medium">
                             {missingFieldNames.map((field, i) => (
                               <li key={i}>{field}</li>
                             ))}
                          </ul>
                       </div>
                     )}
-                    
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Os campos obrigatórios foram destacados a vermelho.
-                    </p>
                  </div>
-                 <Button onClick={() => setShowValidationModal(false)} fullWidth className="mt-2 h-12">
+                 <Button onClick={() => setShowValidationModal(false)} fullWidth className="mt-2 h-10 text-sm">
                    Entendido
                  </Button>
               </div>
@@ -684,24 +680,24 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
       {showConfirmation && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-lg">Confirmação</h3>
-              <button onClick={() => setShowConfirmation(false)} className="p-2 bg-slate-100 rounded-full text-slate-500"><X className="w-4 h-4" /></button>
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-base">Confirmação</h3>
+              <button onClick={() => setShowConfirmation(false)} className="p-1.5 bg-slate-100 rounded-full text-slate-500"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="space-y-3 text-sm">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Espécie</span> <span className="font-bold text-slate-900">{selectedSpecies}</span></div>
                 <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Qtd.</span> <span className="font-bold text-slate-900">{quantity} kg</span></div>
                 <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Preço</span> <span className="font-bold text-slate-900">{unitPrice} MZN</span></div>
                 <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Total</span> <span className="font-bold text-blue-600">{calculateTotal()} MZN</span></div>
                 <div className="flex justify-between py-1"><span className="text-slate-500">Origem</span> <span className="font-bold text-slate-900">{selectedOrigin}</span></div>
               </div>
-              <div className="bg-amber-50 text-amber-800 text-xs p-3 rounded-xl leading-relaxed">
-                Ao confirmar, você será redirecionado para o WhatsApp para finalizar o registo.
+              <div className="bg-amber-50 text-amber-800 text-[10px] p-2.5 rounded-lg leading-relaxed border border-amber-100">
+                Ao confirmar, você será redirecionado para o WhatsApp.
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <Button variant="secondary" onClick={() => setShowConfirmation(false)}>Cancelar</Button>
-                <Button onClick={executeSubmission}>Confirmar</Button>
+                <Button variant="secondary" onClick={() => setShowConfirmation(false)} className="h-10 text-sm">Cancelar</Button>
+                <Button onClick={executeSubmission} className="h-10 text-sm">Confirmar</Button>
               </div>
             </div>
           </div>

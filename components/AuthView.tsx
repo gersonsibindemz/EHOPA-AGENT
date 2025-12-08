@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
 import { ViewState } from '../types';
-import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle, Info } from 'lucide-react';
 
 interface AuthViewProps {
   onNavigate: (view: ViewState) => void;
@@ -237,6 +237,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
             {isLogin ? 'Faça login para aceder à plataforma.' : 'Preencha os dados para começar.'}
           </p>
         </div>
+
+        {/* Demo Account Note */}
+        {isLogin && (
+           <div className="mb-6 bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex flex-col gap-2 relative overflow-hidden">
+             <div className="flex items-center gap-2 text-indigo-800 font-bold text-sm">
+                <Info className="w-4 h-4" />
+                <span>Conta de Teste</span>
+             </div>
+             <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-white/60 p-2 rounded-lg border border-indigo-100/50">
+                <div>
+                   <span className="text-indigo-400 block text-[10px] uppercase font-bold tracking-wider">Email</span>
+                   <span className="text-indigo-900 font-bold select-all">teste@gmail.com</span>
+                </div>
+                <div>
+                   <span className="text-indigo-400 block text-[10px] uppercase font-bold tracking-wider">Senha</span>
+                   <span className="text-indigo-900 font-bold select-all">12345</span>
+                </div>
+             </div>
+           </div>
+        )}
 
         {notification && (
           <div className={`mb-6 p-4 rounded-xl flex items-start gap-3 text-sm font-medium animate-in slide-in-from-top-2 fade-in duration-300 shadow-sm border ${
