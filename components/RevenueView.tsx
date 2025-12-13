@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
-import { ViewState, ProviderStats } from '../types';
-import { ChevronRight, Home, Users, TrendingUp, Package, Search, Info } from 'lucide-react';
+import { ViewState, ProviderStats, HistoryRecord } from '../types';
+import { ChevronRight, Home, Users, TrendingUp, Package, Search, Info, CalendarRange } from 'lucide-react';
 
 interface RevenueViewProps {
   onNavigate: (view: ViewState) => void;
@@ -113,6 +113,66 @@ const MOCK_PROVIDERS: ProviderStats[] = [
 export const RevenueView: React.FC<RevenueViewProps> = ({ onNavigate, onSelectProvider }) => {
   const [searchText, setSearchText] = useState('');
   const [displayedProviders, setDisplayedProviders] = useState<ProviderStats[]>(MOCK_PROVIDERS);
+  const [weeklyEstimate, setWeeklyEstimate] = useState<number>(0);
+
+  useEffect(() => {
+    // Calculate weekly estimate from local history
+    const calculateWeeklyRevenue = () => {
+      try {
+        const stored = localStorage.getItem('ehopa_history');
+        if (!stored) return;
+        
+        const history: HistoryRecord[] = JSON.parse(stored);
+        if (!Array.isArray(history)) return;
+
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        // Assume Monday is start of week
+        const day = startOfWeek.getDay(); // 0=Sun, 1=Mon, etc.
+        // If Sunday (0), go back 6 days to Monday. If Mon (1), go back 0 days.
+        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+        startOfWeek.setDate(diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const total = history.reduce((acc, record) => {
+          // Parse timestamp or fallback to date string if timestamp missing
+          let recordDate: Date;
+          if (record.timestamp) {
+             recordDate = new Date(record.timestamp);
+          } else {
+             // Fallback for DD/MM/YYYY
+             const parts = record.date.split('/');
+             if (parts.length === 3) {
+                 const [d, m, y] = parts;
+                 recordDate = new Date(`${y}-${m}-${d}`);
+             } else {
+                 return acc;
+             }
+          }
+
+          if (recordDate >= startOfWeek) {
+             // Values stored with commas, need dots for float parsing
+             const cleanQty = record.quantity.toString().replace(/,/g, '.');
+             const cleanPrice = record.price.toString().replace(/,/g, '.');
+             
+             const q = parseFloat(cleanQty);
+             const p = parseFloat(cleanPrice);
+             
+             if (!isNaN(q) && !isNaN(p)) {
+               return acc + (q * p);
+             }
+          }
+          return acc;
+        }, 0);
+
+        setWeeklyEstimate(total);
+      } catch (e) {
+        console.error("Revenue calculation error", e);
+      }
+    };
+    
+    calculateWeeklyRevenue();
+  }, []);
 
   const handleSearch = () => {
     const query = searchText.toLowerCase().trim();
@@ -143,6 +203,37 @@ export const RevenueView: React.FC<RevenueViewProps> = ({ onNavigate, onSelectPr
 
         <div className="space-y-4">
           
+          {/* Weekly Revenue Card - Clickable Link to Submissions */}
+          <button 
+            onClick={() => onNavigate('HISTORY')}
+            className="w-full text-left bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 text-white shadow-lg shadow-indigo-900/10 relative overflow-hidden group hover:scale-[1.02] transition-transform active:scale-[0.98]"
+          >
+             <div className="absolute -right-6 -bottom-6 opacity-10">
+                <TrendingUp className="w-32 h-32" />
+             </div>
+             
+             <div className="relative z-10">
+               <div className="flex items-center justify-between mb-2 text-indigo-100">
+                  <div className="flex items-center gap-2">
+                    <CalendarRange className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Estimativa Semanal</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 opacity-70" />
+               </div>
+               
+               <div className="flex items-baseline gap-1">
+                 <span className="text-3xl font-black font-rounded tracking-tight">
+                   {weeklyEstimate.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                 </span>
+                 <span className="text-lg font-medium opacity-70">MZN</span>
+               </div>
+               
+               <p className="text-[10px] text-indigo-200 mt-2 font-medium max-w-[85%] leading-relaxed">
+                  Total acumulado dos registos de "Pescado do Dia" nesta semana (desde Segunda-feira).
+               </p>
+             </div>
+          </button>
+
           {/* Disclaimer */}
           <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl flex gap-3 items-center">
              <Info className="w-5 h-5 text-blue-600 shrink-0" />

@@ -11,6 +11,12 @@ interface RegistrationFormProps {
 interface Provider {
   id: string;
   fullName: string;
+  origin?: string;
+}
+
+interface SpeciesData {
+  name: string;
+  price: string;
 }
 
 interface LocationData {
@@ -21,7 +27,7 @@ interface LocationData {
 export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [origins, setOrigins] = useState<string[]>([]);
-  const [species, setSpecies] = useState<string[]>([]);
+  const [speciesList, setSpeciesList] = useState<SpeciesData[]>([]);
   
   const [loading, setLoading] = useState(true);
   // error state used for data loading errors
@@ -84,7 +90,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
 
         setProviders(parseProvidersCSV(providersText));
         setOrigins(parseOriginsCSV(originsText));
-        setSpecies(parseSpeciesCSV(speciesText));
+        setSpeciesList(parseSpeciesCSV(speciesText));
         
         setLoading(false);
       } catch (err) {
@@ -97,36 +103,54 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
     fetchData();
   }, []);
 
+  // Auto-fetch location on mount
+  useEffect(() => {
+    handleGetLocation();
+  }, []);
+
   useEffect(() => {
     return () => {
       previews.forEach(url => URL.revokeObjectURL(url));
     };
   }, [previews]);
 
+  // Robust CSV split function
+  const splitCSVLine = (line: string): string[] => {
+    // Regex matches comma only if not inside quotes
+    const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    return values.map(val => val.replace(/^"|"$/g, '').trim());
+  };
+
   const parseProvidersCSV = (csvText: string): Provider[] => {
     const lines = csvText.split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+    const headers = splitCSVLine(lines[0]);
     const nomeIdx = headers.findIndex(h => h.toLowerCase() === 'nome');
     const apelidoIdx = headers.findIndex(h => h.toLowerCase() === 'apelido');
+    
+    // Look for Praia or Origem column to associate with provider
+    const originIdx = headers.findIndex(h => {
+        const lower = h.toLowerCase();
+        return lower === 'praia' || lower === 'origem';
+    });
 
     if (nomeIdx === -1) return [];
 
     return lines.slice(1)
-      .map((line, index) => {
-        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        if (!matches) return null;
-        
-        const cleanValues = matches.map(val => val.replace(/^"|"$/g, '').trim());
+      .map((line, index): Provider | null => {
+        if (!line.trim()) return null;
+        const cleanValues = splitCSVLine(line);
         const nome = cleanValues[nomeIdx] || '';
         const apelido = apelidoIdx !== -1 ? cleanValues[apelidoIdx] : '';
+        const origin = originIdx !== -1 ? cleanValues[originIdx] : undefined;
         
         if (!nome) return null;
 
         return {
           id: `prov-${index}`,
-          fullName: `${nome} ${apelido}`.trim()
+          fullName: `${nome} ${apelido}`.trim(),
+          origin: origin
         };
       })
       .filter((p): p is Provider => p !== null)
@@ -137,45 +161,98 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
     const lines = csvText.split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+    const headers = splitCSVLine(lines[0]);
     const praiaIdx = headers.findIndex(h => h.toLowerCase() === 'praia');
 
     if (praiaIdx === -1) return [];
 
     return lines.slice(1)
       .map((line) => {
-        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        if (!matches) return null;
-        
-        const cleanValues = matches.map(val => val.replace(/^"|"$/g, '').trim());
+        if (!line.trim()) return null;
+        const cleanValues = splitCSVLine(line);
         return cleanValues[praiaIdx] || '';
       })
-      .filter((val) => val !== '')
+      .filter((val) => val && val !== '')
       .sort((a, b) => a.localeCompare(b));
   };
 
-  const parseSpeciesCSV = (csvText: string): string[] => {
+  const parseSpeciesCSV = (csvText: string): SpeciesData[] => {
     const lines = csvText.split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+    const headers = splitCSVLine(lines[0]);
+    
+    // Find column for Species Name
     const speciesIdx = headers.findIndex(h => {
       const normalized = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return normalized === 'especies';
+      return normalized === 'especies' || normalized === 'especie';
+    });
+
+    // Find column for Price (Preço por Kg)
+    const priceIdx = headers.findIndex(h => {
+      const normalized = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return normalized.includes('preco') || normalized.includes('price');
     });
 
     if (speciesIdx === -1) return [];
 
     return lines.slice(1)
       .map((line) => {
-        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        if (!matches) return null;
+        if (!line.trim()) return null;
+        const cleanValues = splitCSVLine(line);
+        const name = cleanValues[speciesIdx] || '';
         
-        const cleanValues = matches.map(val => val.replace(/^"|"$/g, '').trim());
-        return cleanValues[speciesIdx] || '';
+        let price = '';
+        if (priceIdx !== -1 && cleanValues[priceIdx]) {
+           price = cleanValues[priceIdx].replace(/[^\d.,]/g, '');
+        }
+
+        if (!name) return null;
+
+        return { name, price };
       })
-      .filter((val) => val !== '')
-      .sort((a, b) => a.localeCompare(b));
+      .filter((item): item is SpeciesData => item !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedProvider(val);
+    clearError('provider');
+    
+    // Auto-fill origin based on provider
+    const provider = providers.find(p => p.fullName === val);
+    if (provider && provider.origin) {
+        const originVal = provider.origin;
+        // Find if this origin exists in our origins list (case insensitive match)
+        const matchedOrigin = origins.find(o => o.toLowerCase() === originVal.toLowerCase());
+        
+        if (matchedOrigin) {
+            setSelectedOrigin(matchedOrigin);
+            clearError('origin');
+        } else {
+            // If the provider's origin is not in the list, add it dynamically so it can be selected/shown
+            setOrigins(prev => [...prev, originVal].sort());
+            setSelectedOrigin(originVal);
+            clearError('origin');
+        }
+    } else {
+        setSelectedOrigin('');
+    }
+  };
+
+  const handleSpeciesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSpecies = e.target.value;
+    setSelectedSpecies(newSpecies);
+    clearError('species');
+
+    // Auto-fill price based on selection
+    const speciesData = speciesList.find(s => s.name === newSpecies);
+    if (speciesData && speciesData.price) {
+      setUnitPrice(speciesData.price.replace(',', '.'));
+    } else {
+      setUnitPrice('');
+    }
   };
 
   const handleGetLocation = () => {
@@ -286,7 +363,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
     if (!selectedDate) { errors.date = true; missing.push("Data da Captura"); }
     if (!selectedProvider) { errors.provider = true; missing.push("Provedor"); }
     if (!selectedOrigin) { errors.origin = true; missing.push("Origem (Praia)"); }
-    if (!location) { errors.location = true; missing.push("Geolocalização"); }
+    if (!location) { errors.location = true; missing.push("Geolocalização (Auto)"); }
     if (!selectedSpecies) { errors.species = true; missing.push("Espécie"); }
     if (!selectedCondition) { errors.condition = true; missing.push("Estado"); }
     if (!quantity) { errors.quantity = true; missing.push("Quantidade"); }
@@ -335,19 +412,17 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
         const lines = csvText.split('\n');
         let count = 0;
         if (lines.length > 1) {
-          const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+          const headers = splitCSVLine(lines[0]);
           const originIdx = headers.findIndex(h => {
              const lower = h.toLowerCase();
              return lower.includes('origem') || lower.includes('praia');
           });
           if (originIdx !== -1) {
              count = lines.slice(1).reduce((acc, line) => {
-               const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-               if (matches) {
-                 const rowValues = matches.map(val => val.replace(/^"|"$/g, '').trim());
-                 if (rowValues[originIdx] && rowValues[originIdx].toLowerCase() === selectedOrigin.toLowerCase()) {
-                   return acc + 1;
-                 }
+               if (!line.trim()) return acc;
+               const rowValues = splitCSVLine(line);
+               if (rowValues[originIdx] && rowValues[originIdx].toLowerCase() === selectedOrigin.toLowerCase()) {
+                 return acc + 1;
                }
                return acc;
              }, 0);
@@ -419,6 +494,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
         setValidationErrors({});
         setMissingFieldNames([]);
         
+        // Re-fetch location for next entry
+        handleGetLocation();
+        
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 1500); // Shorter timeout for better flow
@@ -451,6 +529,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
               </p>
             </div>
 
+            <div className="w-full h-px bg-slate-100 mb-5" />
+
             <form onSubmit={handlePreSubmit} className="space-y-4">
                 
                 {/* Date */}
@@ -470,6 +550,26 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
                   </div>
                 </div>
 
+                {/* Images */}
+                <div>
+                  <label className={labelClasses}>Fotografias (até 5)</label>
+                  <div className="grid grid-cols-4 gap-2 mt-1">
+                    {previews.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm">
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
+                      </div>
+                    ))}
+                    {images.length < 5 && (
+                      <label className="aspect-square rounded-lg border border-dashed border-slate-300 bg-slate-50 shadow-sm flex flex-col items-center justify-center text-slate-400 cursor-pointer active:bg-slate-100 transition-colors">
+                        <Camera className="w-5 h-5 mb-1" />
+                        <span className="text-[9px] font-bold">Add</span>
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
                 {/* Provider */}
                 <div>
                   <label htmlFor="provider" className={labelClasses}>
@@ -479,7 +579,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
                     <select 
                       id="provider" 
                       value={selectedProvider} 
-                      onChange={(e) => { setSelectedProvider(e.target.value); clearError('provider'); }} 
+                      onChange={handleProviderChange} 
                       className={`${getInputClasses(!!validationErrors.provider)} appearance-none`}
                     >
                       <option value="">Selecione...</option>
@@ -494,57 +594,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
                     Origem (Praia) {validationErrors.origin && <span className="text-red-500">*</span>}
                   </label>
                   <div className="relative">
-                    <select 
-                      id="origin" 
-                      value={selectedOrigin} 
-                      onChange={(e) => { setSelectedOrigin(e.target.value); clearError('origin'); }} 
-                      className={`${getInputClasses(!!validationErrors.origin)} appearance-none`}
-                    >
-                      <option value="">Selecione...</option>
-                      {origins.map((o, i) => <option key={i} value={o}>{o}</option>)}
-                    </select>
+                    <input
+                      type="text"
+                      id="origin"
+                      value={selectedOrigin}
+                      readOnly
+                      placeholder="Selecionar Provedor..."
+                      className={`${getInputClasses(!!validationErrors.origin)} bg-slate-100 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-200`}
+                    />
                   </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className={labelClasses}>
-                    Geolocalização {validationErrors.location && <span className="text-red-500">*</span>}
-                  </label>
-                  {!location ? (
-                    <div className={validationErrors.location ? 'rounded-lg p-0.5 border-2 border-red-500' : ''}>
-                      <button 
-                        type="button" 
-                        onClick={handleGetLocation} 
-                        disabled={locationLoading} 
-                        className={`w-full py-2.5 border border-dashed rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-sm ${validationErrors.location ? 'bg-red-50 border-red-200 text-red-700' : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
-                      >
-                        {locationLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Locate className="w-4 h-4" />}
-                        {locationLoading ? 'Obtendo...' : 'Obter GPS'}
-                      </button>
-                      
-                      {isLocationDisabled && (
-                         <div className="flex items-start gap-2 mt-2 px-1">
-                            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-amber-600 font-medium">
-                              Ative o GPS do dispositivo.
-                            </p>
-                         </div>
-                      )}
-                      {locationError && <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">{locationError}</p>}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between bg-white border border-green-200 rounded-lg p-2.5 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="bg-green-100 p-1.5 rounded-full text-green-600"><MapIcon className="w-4 h-4" /></div>
-                        <div className="text-[10px] text-green-800">
-                          <div className="font-bold">GPS OK</div>
-                          <div className="font-mono">{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</div>
-                        </div>
-                      </div>
-                      <button type="button" onClick={handleGetLocation} className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-1 rounded border border-green-100 hover:bg-green-100">Atualizar</button>
-                    </div>
-                  )}
                 </div>
 
                 {/* Species */}
@@ -555,11 +613,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
                   <select 
                     id="species" 
                     value={selectedSpecies} 
-                    onChange={(e) => { setSelectedSpecies(e.target.value); clearError('species'); }} 
+                    onChange={handleSpeciesChange} 
                     className={`${getInputClasses(!!validationErrors.species)} appearance-none`}
                   >
                     <option value="">Selecione...</option>
-                    {species.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                    {speciesList.map((s, i) => <option key={i} value={s.name}>{s.name}</option>)}
                   </select>
                 </div>
 
@@ -604,12 +662,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
                     <input 
                       type="number" 
                       id="unitPrice" 
-                      inputMode="decimal" 
-                      step="0.01" 
                       placeholder="0.00" 
                       value={unitPrice} 
-                      onChange={(e) => { setUnitPrice(e.target.value); clearError('unitPrice'); }} 
-                      className={getInputClasses(!!validationErrors.unitPrice)} 
+                      readOnly
+                      className={`${getInputClasses(!!validationErrors.unitPrice)} bg-slate-100 text-slate-500 cursor-not-allowed focus:ring-0 focus:border-slate-200`} 
                     />
                   </div>
                 </div>
@@ -619,26 +675,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({ onNavigate }
                      Total Estimado: <span className="font-bold text-slate-900">{calculateTotal()} MZN</span>
                    </p>
                 )}
-
-                {/* Images */}
-                <div>
-                  <label className={labelClasses}>Fotos (Opcional)</label>
-                  <div className="grid grid-cols-4 gap-2 mt-1">
-                    {previews.map((url, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white shadow-sm">
-                        <img src={url} alt="" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
-                      </div>
-                    ))}
-                    {images.length < 5 && (
-                      <label className="aspect-square rounded-lg border border-dashed border-slate-300 bg-slate-50 shadow-sm flex flex-col items-center justify-center text-slate-400 cursor-pointer active:bg-slate-100 transition-colors">
-                        <Camera className="w-5 h-5 mb-1" />
-                        <span className="text-[9px] font-bold">Add</span>
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
-                      </label>
-                    )}
-                  </div>
-                </div>
 
                 <Button type="submit" fullWidth disabled={loading || submitStatus === 'submitting'} className="h-12 text-base font-bold shadow-lg shadow-blue-900/10 mt-2">
                   {submitStatus === 'submitting' ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> A enviar...</> : 'Submeter Pescado'}

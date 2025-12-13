@@ -16,7 +16,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onNavigate })
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
       <div className="grid grid-cols-4 h-full">
         {navItems.map((item) => {
           const Icon = item.icon;

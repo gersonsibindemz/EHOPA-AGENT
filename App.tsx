@@ -12,14 +12,18 @@ import { DeliveryLogView } from './components/DeliveryLogView';
 import { ProfileView } from './components/ProfileView';
 import { UpdateBanner } from './components/UpdateBanner';
 import { BottomNav } from './components/BottomNav';
+import { Sidebar } from './components/Sidebar';
+import { OnboardingTour } from './components/OnboardingTour';
 import { ViewState, ProviderStats } from './types';
-import { Smartphone, Tablet } from 'lucide-react';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [profoundLoading, setProfoundLoading] = useState<boolean>(true); // For initial load
   const [currentView, setCurrentView] = useState<ViewState>('AUTH');
   const [selectedProvider, setSelectedProvider] = useState<ProviderStats | null>(null);
+  
+  // Tour state
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     // Check for existing session on mount
@@ -33,6 +37,18 @@ export default function App() {
     }
     setProfoundLoading(false);
   }, []);
+
+  // Check for tour eligibility whenever authentication status changes to true
+  useEffect(() => {
+    if (isAuthenticated) {
+      const tourCompleted = localStorage.getItem('ehopa_tour_completed');
+      if (!tourCompleted) {
+        // Small delay to ensure UI is ready before showing tour
+        const timer = setTimeout(() => setShowTour(true), 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isAuthenticated]);
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
@@ -55,6 +71,11 @@ export default function App() {
   const handleSelectProvider = (provider: ProviderStats) => {
     setSelectedProvider(provider);
     handleNavigate('PROVIDER_DETAIL');
+  };
+  
+  const handleTourComplete = () => {
+    localStorage.setItem('ehopa_tour_completed', 'true');
+    setShowTour(false);
   };
 
   const renderView = () => {
@@ -98,69 +119,34 @@ export default function App() {
   if (profoundLoading) return null; // Or a splash screen
 
   return (
-    <>
-      {/* Main App - Visible only on Mobile/Tablet (< 1024px) */}
-      <div className="lg:hidden min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
-        {renderView()}
-        
-        {/* Show Bottom Nav only if authenticated */}
-        {isAuthenticated && (
-          <BottomNav currentView={currentView} onNavigate={handleNavigate} />
-        )}
-        
-        {isAuthenticated && <UpdateBanner />}
-      </div>
-
-      {/* Desktop Block Message - Visible only on Laptop+ (>= 1024px) */}
-      <div className="hidden lg:flex min-h-screen bg-slate-900 items-center justify-center p-8 relative overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-           <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl"></div>
-           <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"></div>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900 flex">
+      
+      {/* Desktop Sidebar - Hidden on mobile */}
+      {isAuthenticated && (
+        <div className="hidden lg:block w-64 shrink-0">
+           <Sidebar currentView={currentView} onNavigate={handleNavigate} onLogout={handleLogout} />
         </div>
+      )}
 
-        <div className="max-w-md w-full text-center space-y-8 relative z-10">
-          <div className="relative w-32 h-32 mx-auto bg-white rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-900/50 mb-8 border-4 border-slate-800">
-             <img 
-              src="https://i.postimg.cc/bNBDGq5Q/ehopa-agent-logo.png" 
-              alt="Logo" 
-              className="w-24 h-24 object-contain"
-            />
-          </div>
-          
-          <div className="space-y-4">
-            <h1 className="text-3xl font-black text-white tracking-tight">
-              Apenas Móvel & Tablet
-            </h1>
-            <p className="text-slate-400 text-lg leading-relaxed">
-              O <span className="text-white font-bold">EHOPA AGENT</span> foi otimizado para uso exclusivo em campo através de dispositivos móveis.
-            </p>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
-            <div className="flex justify-center gap-6 text-slate-400 mb-4">
-              <div className="flex flex-col items-center gap-2">
-                <Smartphone className="w-8 h-8 text-blue-400" />
-                <span className="text-xs font-bold uppercase">Telemóvel</span>
-              </div>
-              <div className="w-px bg-white/10"></div>
-              <div className="flex flex-col items-center gap-2">
-                <Tablet className="w-8 h-8 text-blue-400" />
-                <span className="text-xs font-bold uppercase">Tablet</span>
-              </div>
-            </div>
-            <p className="text-slate-300 text-sm font-medium border-t border-white/10 pt-4">
-              Por favor, aceda através de um dispositivo compatível para continuar.
-            </p>
-          </div>
-          
-          <div className="pt-8 flex justify-center gap-2 opacity-30">
-             <div className="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-             <div className="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-             <div className="w-1.5 h-1.5 rounded-full bg-slate-500"></div>
-          </div>
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0">
+        {/* On desktop, constrain the max-width to simulate the mobile app feel but cleaner */}
+        <div className="mx-auto w-full lg:max-w-3xl lg:mt-8 lg:mb-8 lg:bg-white lg:shadow-xl lg:rounded-3xl lg:overflow-hidden lg:min-h-[calc(100vh-4rem)] lg:border lg:border-slate-200">
+           {renderView()}
         </div>
       </div>
-    </>
+      
+      {/* Bottom Nav - Hidden on Desktop (handled via CSS in BottomNav component) */}
+      {isAuthenticated && (
+        <BottomNav currentView={currentView} onNavigate={handleNavigate} />
+      )}
+      
+      {isAuthenticated && <UpdateBanner />}
+      
+      {/* Onboarding Tour Overlay */}
+      {showTour && isAuthenticated && (
+        <OnboardingTour onComplete={handleTourComplete} onSkip={handleTourComplete} />
+      )}
+    </div>
   );
 }
