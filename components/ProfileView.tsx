@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
 import { ViewState, UserProfile } from '../types';
 import { Button } from './Button';
-import { Camera, LogOut, Save, User } from 'lucide-react';
+import { LogOut, Save } from 'lucide-react';
 
 interface ProfileViewProps {
   onNavigate: (view: ViewState) => void;
@@ -52,17 +52,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate, onLogout }
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
     setMessage(null);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile({ ...profile, photoUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -130,6 +119,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate, onLogout }
     }
   };
 
+  const getInitials = () => {
+    const first = profile.name ? profile.name.charAt(0).toUpperCase() : '';
+    const last = profile.surname ? profile.surname.charAt(0).toUpperCase() : '';
+    return `${first}${last}`;
+  };
+
   const inputClasses = "w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-slate-900 placeholder:text-slate-400";
   const labelClasses = "block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5 ml-1";
   const sectionClasses = "bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4";
@@ -152,19 +147,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate, onLogout }
           
           {/* Profile Header */}
           <div className="flex flex-col items-center justify-center mb-6">
-            <div className="relative group">
-              <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-slate-50 shadow-lg bg-slate-100 flex items-center justify-center">
-                {profile.photoUrl ? (
-                  <img src={profile.photoUrl} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-12 h-12 text-slate-300" />
-                )}
-              </div>
-              <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer shadow-md hover:bg-blue-700 transition-colors">
-                <Camera className="w-4 h-4" />
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-              </label>
+            <div className="w-28 h-28 rounded-full border-4 border-slate-50 shadow-lg bg-blue-100 flex items-center justify-center select-none">
+                <span className="text-3xl font-black text-blue-600 tracking-wider">
+                  {getInitials()}
+                </span>
             </div>
+            
             <div className="mt-3 text-center">
                <h2 className="text-xl font-bold text-slate-900">{profile.name} {profile.surname}</h2>
                <p className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full inline-block mt-1">

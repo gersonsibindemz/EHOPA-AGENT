@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
 import { ViewState } from '../types';
-import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle, Info, X, MapPin, FileText, BarChart3, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle, Info, X, MapPin, FileText, BarChart3, ShieldCheck, ChevronRight, HelpCircle } from 'lucide-react';
 
 interface AuthViewProps {
   onNavigate: (view: ViewState) => void;
@@ -29,6 +29,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
     password: '',
     confirmPassword: ''
   });
+
+  const faqs = [
+    { q: "Como registar um novo pescado?", a: "Aceda ao menu 'Novo Registo', preencha os dados obrigatórios e a localização, e clique em Submeter." },
+    { q: "É necessário internet?", a: "Sim, é necessária uma conexão ativa para carregar provedores e enviar dados." },
+    { q: "Como corrigir um erro?", a: "Atualmente não é possível editar um envio. Contacte o suporte para correções." },
+    { q: "A localização é obrigatória?", a: "Sim, para validar a origem do pescado, a geolocalização é mandatória." },
+    { q: "O que fazer se o provedor não estiver na lista?", a: "Contacte o gestor para adicionar o novo provedor à base de dados." },
+    { q: "Posso enviar fotos?", a: "Sim, pode adicionar até 5 fotos por registo." },
+    { q: "Como ver meus registos anteriores?", a: "Aceda à aba 'Submissões' no menu inferior." },
+    { q: "O app funciona em tablets?", a: "Sim, o layout é adaptado para telemóveis e tablets." },
+    { q: "Como recuperar minha senha?", a: "Deverá contactar imediatamente a equipe de suporte para redefinição." },
+    { q: "Quem vê os dados registados?", a: "Apenas a equipa de gestão e clientes autorizados da EHOPA." }
+  ];
 
   // Password validation state
   const isPasswordStrong = formData.password.length >= 6 && /\d/.test(formData.password);
@@ -307,28 +320,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
         {/* Right: Help Text */}
         <button 
           onClick={() => setShowInfoModal(true)}
-          className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors"
         >
+          <HelpCircle className="w-4 h-4" />
           Ajuda
         </button>
       </div>
       
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 py-4 overflow-y-auto">
-        
-        {/* Top Section: Header & Demo Info - Separated from Form */}
-        <div className="mb-6">
-          <div className="mb-4">
-            <h2 className="text-2xl font-black text-slate-900 font-rounded tracking-tight">
-              {isLogin ? 'Bem-vindo, Agente' : 'Criar Conta Agente'}
-            </h2>
-            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-              {isLogin ? 'Acesso à plataforma.' : 'Preencha os dados para começar.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="w-full h-px bg-slate-100 mb-6" />
+      {/* Top Title Section - Moved out of the centered form container */}
+      <div className="w-full max-w-md mx-auto px-6 pt-4 pb-2">
+         <h2 className="text-2xl font-black text-slate-900 font-rounded tracking-tight">
+            {isLogin ? 'Bem-vindo, Agente' : 'Criar Conta Agente'}
+         </h2>
+         <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+            {isLogin ? 'Acesso à plataforma.' : 'Preencha os dados para começar.'}
+         </p>
+         <div className="w-full h-px bg-slate-100 mt-4" />
+      </div>
+      
+      {/* Main Content Area - Form Area aligned to top with spacing */}
+      <main className="flex-1 flex flex-col justify-start w-full max-w-md mx-auto px-6 pt-8 pb-4 overflow-y-auto">
 
         {notification && (
           <div className={`mb-6 p-3 rounded-xl flex items-start gap-2 text-sm font-medium animate-in slide-in-from-top-2 fade-in duration-300 shadow-sm border ${
@@ -428,13 +439,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
               <input 
                 name="loginIdentifier"
                 type="text" 
-                placeholder="email ou 84..."
+                placeholder="84/87..."
                 className={inputClasses}
                 value={formData.loginIdentifier}
                 onChange={handleChange}
                 required
               />
-              <p className="text-[10px] text-slate-400 mt-1 ml-1">Para telemóvel, use o número direto (ex: 84...).</p>
             </div>
           )}
 
@@ -532,14 +542,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
         )}
       </main>
 
-      {/* Info Modal */}
+      {/* Unified Info/FAQ Modal */}
       {showInfoModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 max-h-[90vh] flex flex-col">
               {/* Modal Header */}
               <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0 z-10">
                  <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                    Guia do Agente
+                    Central de Ajuda
                  </h3>
                  <button onClick={() => setShowInfoModal(false)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors">
                     <X className="w-5 h-5" />
@@ -555,7 +565,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
                  </div>
 
                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-900 text-base border-b border-slate-100 pb-2">Como Navegar</h4>
+                    <h4 className="font-bold text-slate-900 text-base border-b border-slate-100 pb-2">Guia Rápido</h4>
                     
                     <div className="flex gap-4">
                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-blue-600">
@@ -597,15 +607,37 @@ export const AuthView: React.FC<AuthViewProps> = ({ onNavigate, onLoginSuccess }
                        </div>
                     </div>
                  </div>
+
+                 {/* Divider and FAQ Section */}
+                 <div className="pt-2 border-t border-slate-100"></div>
+
+                 <div>
+                    <h4 className="font-bold text-slate-900 text-base mb-4 flex items-center gap-2">
+                       <HelpCircle className="w-4 h-4 text-blue-600" /> Perguntas Frequentes
+                    </h4>
+                    <div className="space-y-2">
+                        {faqs.map((item, i) => (
+                          <details key={i} className="group bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                            <summary className="flex items-center justify-between p-3.5 cursor-pointer list-none select-none hover:bg-slate-100 transition-colors">
+                              <span className="text-xs font-bold text-slate-700 text-left pr-2">{item.q}</span>
+                              <ChevronRight className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-90 shrink-0" />
+                            </summary>
+                            <div className="px-3.5 pb-3.5 pt-0 text-xs text-slate-500 leading-relaxed border-t border-slate-100 bg-white mt-2 pt-2">
+                              {item.a}
+                            </div>
+                          </details>
+                        ))}
+                    </div>
+                 </div>
                  
                  <div className="pt-4 text-center">
-                    <p className="text-xs text-slate-400">UBUNTO STORYTECH &copy; {new Date().getFullYear()}</p>
+                    <p className="text-xs text-slate-400">UBUNTU STORYTECH &copy; {new Date().getFullYear()}</p>
                  </div>
               </div>
               
               <div className="p-4 border-t border-slate-100 bg-slate-50/50">
                  <Button onClick={() => setShowInfoModal(false)} fullWidth className="h-12">
-                    Entendido, vamos começar
+                    Entendido
                  </Button>
               </div>
            </div>

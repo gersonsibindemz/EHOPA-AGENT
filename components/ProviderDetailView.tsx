@@ -122,7 +122,7 @@ export const ProviderDetailView: React.FC<ProviderDetailViewProps> = ({ onNaviga
                   </div>
                   <div>
                     <div className="text-xs font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
-                      <Package className="w-3.5 h-3.5" /> Restante
+                      <Package className="w-3.5 h-3.5" /> Disponibilidade
                     </div>
                     <div className="text-xl font-black text-slate-900">{provider.stockRemainingKg} <span className="text-sm font-medium text-slate-500">kg</span></div>
                   </div>
@@ -141,7 +141,7 @@ export const ProviderDetailView: React.FC<ProviderDetailViewProps> = ({ onNaviga
                   </div>
                   <div>
                     <div className="text-xs font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
-                      <Package className="w-3.5 h-3.5" /> Submetido
+                      <Package className="w-3.5 h-3.5" /> Entregas
                     </div>
                     <div className="text-xl font-black text-slate-900">{provider.totalKg} <span className="text-sm font-medium text-slate-500">kg</span></div>
                   </div>

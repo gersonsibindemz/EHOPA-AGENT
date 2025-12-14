@@ -14,7 +14,9 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { BottomNav } from './components/BottomNav';
 import { Sidebar } from './components/Sidebar';
 import { OnboardingTour } from './components/OnboardingTour';
+import { Button } from './components/Button';
 import { ViewState, ProviderStats } from './types';
+import { UserCircle2 } from 'lucide-react';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -24,6 +26,7 @@ export default function App() {
   
   // Tour state
   const [showTour, setShowTour] = useState(false);
+  const [showProfileAdvice, setShowProfileAdvice] = useState(false);
 
   useEffect(() => {
     // Check for existing session on mount
@@ -43,9 +46,28 @@ export default function App() {
     if (isAuthenticated) {
       const tourCompleted = localStorage.getItem('ehopa_tour_completed');
       if (!tourCompleted) {
-        // Small delay to ensure UI is ready before showing tour
-        const timer = setTimeout(() => setShowTour(true), 1000);
-        return () => clearTimeout(timer);
+        // Preload image before showing tour
+        const imgUrl = "https://i.postimg.cc/BZg50YML/Grey-Black-Pink-80s-Aesthetic-Minimalist-Simple-Trending-New-Collection-Ins-20251214-004005-0000.png";
+        const img = new Image();
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        const show = () => {
+           setShowTour(true);
+           if (timeoutId) clearTimeout(timeoutId);
+        };
+
+        img.onload = show;
+        img.onerror = show; // Show anyway if error
+        img.src = imgUrl;
+
+        // Fallback if image loading hangs
+        timeoutId = setTimeout(show, 4000);
+
+        return () => {
+           if (timeoutId) clearTimeout(timeoutId);
+           img.onload = null;
+           img.onerror = null;
+        };
       }
     }
   }, [isAuthenticated]);
@@ -76,6 +98,13 @@ export default function App() {
   const handleTourComplete = () => {
     localStorage.setItem('ehopa_tour_completed', 'true');
     setShowTour(false);
+    // Show advice after tour closes
+    setTimeout(() => setShowProfileAdvice(true), 500);
+  };
+
+  const handleGoToProfile = () => {
+    setShowProfileAdvice(false);
+    handleNavigate('PROFILE');
   };
 
   const renderView = () => {
@@ -146,6 +175,29 @@ export default function App() {
       {/* Onboarding Tour Overlay */}
       {showTour && isAuthenticated && (
         <OnboardingTour onComplete={handleTourComplete} onSkip={handleTourComplete} />
+      )}
+
+      {/* Profile Update Advice Modal */}
+      {showProfileAdvice && isAuthenticated && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-300">
+              <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-4 text-blue-600 mx-auto">
+                 <UserCircle2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 text-center mb-2">Atualize seu Perfil</h3>
+              <p className="text-sm text-slate-500 text-center leading-relaxed mb-6">
+                 Para garantir que recebe e partilha informações locais reais e precisas, por favor reserve um momento para atualizar os seus dados de agente.
+              </p>
+              <div className="space-y-3">
+                 <Button onClick={handleGoToProfile} fullWidth className="h-12 shadow-lg shadow-blue-900/10">
+                    Ir para o Perfil
+                 </Button>
+                 <button onClick={() => setShowProfileAdvice(false)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-2 transition-colors">
+                    Fazer isso mais tarde
+                 </button>
+              </div>
+           </div>
+        </div>
       )}
     </div>
   );

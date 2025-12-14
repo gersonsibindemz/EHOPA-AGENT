@@ -15,7 +15,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, onSk
     {
       title: "Bem-vindo ao EHOPA!",
       description: "Esta é a sua nova ferramenta de trabalho. Vamos fazer um tour rápido de 1 minuto para conhecer as funcionalidades principais?",
-      icon: <img src="https://i.postimg.cc/hj1RnmJG/ehopa-desktop-navbar-icon-v1.png" alt="Logo" className="w-16 h-16 object-contain mb-2" />,
+      icon: <img src="https://i.postimg.cc/BZg50YML/Grey-Black-Pink-80s-Aesthetic-Minimalist-Simple-Trending-New-Collection-Ins-20251214-004005-0000.png" alt="Bem-vindo" className="w-full h-full object-cover absolute inset-0" />,
       color: "bg-white"
     },
     {
@@ -73,16 +73,16 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onComplete, onSk
       <div className={`bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 transform ${isClosing ? 'scale-95 translate-y-4' : 'scale-100 translate-y-0'}`}>
         
         {/* Header Image/Icon Area */}
-        <div className={`h-48 ${steps[currentStep].color} flex flex-col items-center justify-center border-b border-slate-100 transition-colors duration-500 relative`}>
+        <div className={`h-48 ${steps[currentStep].color} flex flex-col items-center justify-center border-b border-slate-100 transition-colors duration-500 relative overflow-hidden`}>
            <button 
              onClick={handleSkip} 
-             className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white rounded-full text-slate-400 hover:text-slate-900 transition-colors"
+             className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white rounded-full text-slate-400 hover:text-slate-900 transition-colors z-20"
              aria-label="Pular Tour"
            >
              <X className="w-5 h-5" />
            </button>
            
-           <div className="animate-in zoom-in duration-300 key={currentStep}">
+           <div className="animate-in zoom-in duration-300 key={currentStep} w-full h-full flex items-center justify-center">
              {steps[currentStep].icon}
            </div>
         </div>
